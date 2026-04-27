@@ -23,6 +23,7 @@ export default function App() {
         <Column
           ages={col.ages}
           cells={col.cells}
+          flashes={col.flashes}
           key={i}
           rows={terminalRows}
           tailLen={col.tailLen}

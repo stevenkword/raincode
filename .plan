@@ -61,7 +61,7 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 ## Visual style
 
 - **Head cell**: bold white (`chalk.bold.white`)
-- **Tail gradient**: bright green → dim green over `tailLen` cells (default 8–16, randomised per column)
+- **Tail gradient**: bright green → dim green over `tailLen` cells (default 8–16, randomized per column)
 - **Background**: terminal default (black assumed; no explicit fill)
 - **Character refresh**: head cell re-randomises each tick; tail cells keep their character
 
@@ -73,7 +73,7 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 |-----|--------|
 | `q` / `Ctrl-C` | Quit |
 | `+` / `-` | Speed up / slow down |
-| `r` | Randomise all columns |
+| `r` | Randomize all columns |
 
 ---
 
@@ -82,11 +82,11 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 1. **Setup** — add `ink` dependency, create entry point, confirm Ink renders to terminal ✓
 2. **Characters** — implement `chars.ts` with katakana + digit + latin sets, random picker ✓
 3. **State hook** — `useMatrixState` with tick loop, column advance logic, resize handling ✓
-4. **Column component** — `Column.tsx` renders cells with correct colour/bold ✓
+4. **Column component** — `Column.tsx` renders cells with correct color/bold ✓
 5. **App shell** — wire columns together, keyboard controls ✓
-6. **Polish** — colour gradient tuning, speed variance, startup rain-in effect
+6. **Polish** — color gradient tuning, speed variance, startup rain-in effect
 7. **Authentic character set** — replace generic katakana range with the exact glyphs from the film
-8. **True-colour phosphor gradient** — full 24-bit RGB tail fade
+8. **True-color phosphor gradient** — full 24-bit RGB tail fade
 9. **Character mutation & glitch** — tail cells randomly re-roll their glyph; occasional flash bursts
 10. **Hidden AI messages** — Claude streams Matrix-themed text; letters surface one-by-one in the rain then dissolve
 11. **CLI flags & themes** — `--speed`, `--density`, `--color`, `--message`; named themes (classic, blue, red, architect)
@@ -106,9 +106,9 @@ The film's digital rain was designed by Simon Whiteley using characters from a J
 
 Update `chars.ts`. No other files change.
 
-### Phase 8 — True-colour phosphor gradient
+### Phase 8 — True-color phosphor gradient
 
-Modern terminals support 24-bit colour via `\x1b[38;2;R;G;Bm`. Ink passes colour strings through Chalk, which supports `#RRGGBB` hex.
+Modern terminals support 24-bit color via `\x1b[38;2;R;G;Bm`. Ink passes color strings through Chalk, which supports `#RRGGBB` hex.
 
 Gradient across tail positions (age 0 → tailLen):
 
@@ -129,7 +129,7 @@ Two independent effects:
 
 **Mutation**: each tail cell has a `mutationRate` (default 4%). Each tick, if `Math.random() < mutationRate`, the cell gets a new random char. Head cells always re-roll (already implemented).
 
-**Flash burst**: once every ~200 ticks, a random existing tail cell briefly lights up to near-head brightness for 1–2 ticks before returning to its age-correct colour. Stores `flashUntil: number` (tick index) alongside the cell.
+**Flash burst**: once every ~200 ticks, a random existing tail cell briefly lights up to near-head brightness for 1–2 ticks before returning to its age-correct color. Stores `flashUntil: number` (tick index) alongside the cell.
 
 Both are stored in `ColumnState` / `Cell` and applied in `tickColumn`.
 

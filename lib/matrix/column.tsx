@@ -34,11 +34,13 @@ function phosphorColor(age: number, tailLen: number): string {
   return "#003311";
 }
 
+const FLASH_COLOR = "#88ff88";
+
 interface Props extends MatrixColumn {
   rows: number;
 }
 
-export default function Column({ cells, ages, tailLen, rows }: Props) {
+export default function Column({ cells, ages, flashes, tailLen, rows }: Props) {
   return (
     <Box flexDirection="column" width={1}>
       {Array.from({ length: rows }, (_, r) => {
@@ -49,7 +51,8 @@ export default function Column({ cells, ages, tailLen, rows }: Props) {
           return <Text key={r}> </Text>;
         }
 
-        const color = phosphorColor(age, tailLen);
+        const flashing = (flashes[r] ?? 0) > 0;
+        const color = flashing ? FLASH_COLOR : phosphorColor(age, tailLen);
         return (
           <Text bold={age === 0} color={color} key={r}>
             {char}
