@@ -1,4 +1,4 @@
-# zmatrix
+# raincode
 
 A modern terminal clone of the classic `cmatrix` screensaver, built with React Ink and brought up to 2026 with true-color rendering, AI-generated messages, and full screensaver polish.
 
@@ -8,7 +8,7 @@ A modern terminal clone of the classic `cmatrix` screensaver, built with React I
 
 `cmatrix` was written by Chris Allegretta in 1999, inspired by the opening title sequence of *The Matrix*. The film's digital rain was designed by production designer Simon Whiteley, who fed pages from his wife's Japanese sushi cookbook through a scanner and composited the characters into the cascading green columns that became one of cinema's most iconic visual motifs.
 
-`zmatrix` reimplements that effect from scratch in TypeScript, faithful to the source material but taking full advantage of what modern terminals and AI APIs make possible in 2026:
+`raincode` reimplements that effect from scratch in TypeScript, faithful to the source material but taking full advantage of what modern terminals and AI APIs make possible in 2026:
 
 - **24-bit true-color** phosphor gradients rather than 8-color approximations
 - **Film-accurate character set** — the actual half-width katakana block (`ｦ`–`ﾝ`) used by Whiteley, paired with the symbols and digits from the rain
@@ -25,7 +25,7 @@ A modern terminal clone of the classic `cmatrix` screensaver, built with React I
 
 ```bash
 git clone <repo>
-cd zmatrix
+cd raincode
 bun install
 ```
 
@@ -39,7 +39,7 @@ Or link as a global command:
 
 ```bash
 bun link
-zmatrix
+raincode
 ```
 
 **AI messages** require an Anthropic API key (or any AI SDK-compatible gateway) in your environment. Without one, pass `--no-ai` to skip AI generation.
@@ -49,7 +49,7 @@ zmatrix
 ## Usage
 
 ```
-zmatrix [options]
+raincode [options]
 ```
 
 ### Keybindings
@@ -124,9 +124,9 @@ Can be combined with `--color` to use a theme's head color with a custom base.
 Overrides the base rain color with any 24-bit hex value. The head remains white and the full phosphor gradient is rebuilt from this color. Accepts standard CSS hex notation.
 
 ```bash
-zmatrix --color "#00ccff"   # cyan
-zmatrix --color "#ff00ff"   # magenta
-zmatrix --color "#ffffff"   # all white (same as --theme architect)
+raincode --color "#00ccff"   # cyan
+raincode --color "#ff00ff"   # magenta
+raincode --color "#ffffff"   # all white (same as --theme architect)
 ```
 
 ---
@@ -140,9 +140,9 @@ Pins a specific message to cycle through the rain indefinitely. The text is uppe
 Messages longer than 12 characters will be truncated to fit within a column. For multi-word phrases, spaces are preserved as blank cells in the rain.
 
 ```bash
-zmatrix --message "WAKE UP"
-zmatrix --message "FOLLOW THE WHITE RABBIT"
-zmatrix --message "THERE IS NO SPOON"
+raincode --message "WAKE UP"
+raincode --message "FOLLOW THE WHITE RABBIT"
+raincode --message "THERE IS NO SPOON"
 ```
 
 When `--message` is set, AI generation is automatically bypassed.
@@ -156,9 +156,9 @@ When `--message` is set, AI generation is automatically bypassed.
 Exits cleanly after the given number of seconds. A `MM:SS` countdown is displayed in the bottom-right corner of the screen while the timer is running, rendered in the active theme's base color.
 
 ```bash
-zmatrix --timeout 60     # 1 minute
-zmatrix --timeout 300    # 5 minutes — useful as a screensaver
-zmatrix --timeout 3600   # 1 hour
+raincode --timeout 60     # 1 minute
+raincode --timeout 300    # 5 minutes — useful as a screensaver
+raincode --timeout 3600   # 1 hour
 ```
 
 ---
@@ -191,27 +191,27 @@ Prints a short usage reference and exits.
 
 ```bash
 # Slower, sparser rain
-zmatrix --speed 0.5 --density 0.6
+raincode --speed 0.5 --density 0.6
 
 # Red theme, faster
-zmatrix --theme red --speed 1.8
+raincode --theme red --speed 1.8
 
 # Custom color
-zmatrix --color "#00ccff"
+raincode --color "#00ccff"
 
 # Force a message into the rain
-zmatrix --message "THERE IS NO SPOON"
+raincode --message "THERE IS NO SPOON"
 
 # Run as a screensaver for 5 minutes
-zmatrix --timeout 300
+raincode --timeout 300
 
 # No AI, classic look
-zmatrix --no-ai
+raincode --no-ai
 ```
 
 ### Config file
 
-Persistent defaults can be stored at `~/.config/zmatrix/config.json`. CLI flags override file values.
+Persistent defaults can be stored at `~/.config/raincode/config.json`. CLI flags override file values.
 
 ```json
 {

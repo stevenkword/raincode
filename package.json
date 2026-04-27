@@ -1,12 +1,12 @@
 {
-  "name": "zmatrix",
+  "name": "raincode",
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "zmatrix": "bin/matrix.tsx"
+    "raincode": "bin/matrix.tsx"
   },
   "scripts": {
-    "matrix": "bun bin/matrix.tsx",
+    "start": "bun bin/matrix.tsx",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "husky",

@@ -12,7 +12,7 @@ export interface Config {
   timeout?: number;
 }
 
-const CONFIG_PATH = join(homedir(), ".config", "zmatrix", "config.json");
+const CONFIG_PATH = join(homedir(), ".config", "raincode", "config.json");
 
 const DEFAULTS: Config = {
   density: 1.0,
@@ -33,7 +33,7 @@ function readConfigFile(): Partial<Config> {
 }
 
 const HELP = `\
-Usage: zmatrix [options]
+Usage: raincode [options]
 
 Options:
   --speed <n>      Animation speed multiplier (default: 1.0)
@@ -45,7 +45,7 @@ Options:
   --no-ai          Disable AI-generated messages
   --help           Show this help text
 
-Config file: ~/.config/zmatrix/config.json
+Config file: ~/.config/raincode/config.json
 `;
 
 export function parseConfig(): Config {

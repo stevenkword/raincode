@@ -1,4 +1,4 @@
-# zmatrix — React Ink cmatrix Clone
+# raincode — React Ink cmatrix Clone
 
 ## Goal
 
@@ -201,7 +201,7 @@ Use a minimal CLI parser (`lib/matrix/cli.ts`) — no heavy deps, just `process.
 | `architect` | `#FFFFFF` | `#FFFFFF` | The Architect's white room |
 | `amber` | `#FFFFFF` | `#FFAA00` | Old-school phosphor amber |
 
-Config file at `~/.config/zmatrix/config.json` (parsed on startup, overridden by flags).
+Config file at `~/.config/raincode/config.json` (parsed on startup, overridden by flags).
 
 ### Phase 12 — Screensaver polish
 
