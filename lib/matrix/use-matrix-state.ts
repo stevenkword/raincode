@@ -194,6 +194,10 @@ function tickColumn(
   };
 }
 
+const SPEED_STEP = 0.25;
+const SPEED_MIN = 0.1;
+const SPEED_MAX = 5.0;
+
 export function useMatrixState(config: Config) {
   const { columns, rows } = useWindowSize();
   const { frame } = useAnimation({ interval: 50 });
@@ -201,6 +205,8 @@ export function useMatrixState(config: Config) {
     noAi: config.noAi,
     forcedMessage: config.message,
   });
+
+  const [speedMultiplier, setSpeedMultiplier] = useState(config.speed);
 
   const [cols, setCols] = useState<ColumnState[]>(() =>
     Array.from({ length: columns }, () =>
@@ -213,18 +219,39 @@ export function useMatrixState(config: Config) {
     )
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: speedMultiplier intentionally excluded — resetting columns on every +/- keypress would be jarring
   useEffect(() => {
     setCols(
       Array.from({ length: columns }, () =>
         makeColumn(
           rows,
           Math.floor(Math.random() * 20),
-          config.speed,
+          speedMultiplier,
           config.density
         )
       )
     );
-  }, [columns, rows, config.speed, config.density]);
+  }, [columns, rows, config.density]);
+
+  const adjustSpeed = useCallback((delta: number) => {
+    setSpeedMultiplier((prev) => {
+      const next = Math.round((prev + delta) * 100) / 100;
+      return Math.min(SPEED_MAX, Math.max(SPEED_MIN, next));
+    });
+  }, []);
+
+  const randomize = useCallback(() => {
+    setCols(
+      Array.from({ length: columns }, () =>
+        makeColumn(
+          rows,
+          Math.floor(Math.random() * 20),
+          speedMultiplier,
+          config.density
+        )
+      )
+    );
+  }, [columns, rows, speedMultiplier, config.density]);
 
   const tick = useCallback(
     (prev: ColumnState[]) => {
@@ -247,6 +274,10 @@ export function useMatrixState(config: Config) {
   }, [frame, tick]);
 
   return {
+    adjustSpeed,
+    randomize,
+    speedMultiplier,
+    speedStep: SPEED_STEP,
     columns: cols.map(
       (col): MatrixColumn => ({
         cells: col.cells,

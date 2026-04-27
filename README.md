@@ -52,7 +52,16 @@ zmatrix
 zmatrix [options]
 ```
 
-Press `q` or `Ctrl-C` to exit at any time.
+### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `q` / `Ctrl-C` | Quit |
+| `+` / `=` | Increase speed by 0.25 |
+| `-` | Decrease speed by 0.25 |
+| `r` | Randomize all columns |
+
+Speed is clamped to the range `0.1`–`5.0`. Changes take effect on new columns as they spawn; existing streams finish their current run at their prior speed.
 
 ---
 

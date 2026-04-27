@@ -5,11 +5,27 @@ import type { Config } from "./config.js";
 import { buildStops, resolveTheme } from "./theme.js";
 import { useMatrixState } from "./use-matrix-state.js";
 
-function InputHandler() {
+interface InputHandlerProps {
+  adjustSpeed: (delta: number) => void;
+  randomize: () => void;
+  speedStep: number;
+}
+
+function InputHandler({
+  adjustSpeed,
+  randomize,
+  speedStep,
+}: InputHandlerProps) {
   const { exit } = useApp();
   useInput((input, key) => {
     if (input === "q" || (key.ctrl && input === "c")) {
       exit();
+    } else if (input === "+" || input === "=") {
+      adjustSpeed(speedStep);
+    } else if (input === "-") {
+      adjustSpeed(-speedStep);
+    } else if (input === "r") {
+      randomize();
     }
   });
   return null;
@@ -56,13 +72,26 @@ interface Props {
 
 export default function App({ config }: Props) {
   const { isRawModeSupported } = useStdin();
-  const { columns, terminalRows, terminalCols } = useMatrixState(config);
+  const {
+    adjustSpeed,
+    randomize,
+    speedStep,
+    columns,
+    terminalRows,
+    terminalCols,
+  } = useMatrixState(config);
   const theme = resolveTheme(config.theme, config.color);
   const stops = buildStops(theme.head, theme.base);
 
   return (
     <Box flexDirection="row" height={terminalRows} width={terminalCols}>
-      {isRawModeSupported && <InputHandler />}
+      {isRawModeSupported && (
+        <InputHandler
+          adjustSpeed={adjustSpeed}
+          randomize={randomize}
+          speedStep={speedStep}
+        />
+      )}
       {columns.map((col, i) => (
         <Column
           ages={col.ages}
