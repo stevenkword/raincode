@@ -31,13 +31,26 @@ async function fetchPhrase(): Promise<string | null> {
   }
 }
 
-export function useMessageQueue() {
-  const queueRef = useRef<string[]>([]);
+interface Options {
+  forcedMessage?: string;
+  noAi?: boolean;
+}
+
+export function useMessageQueue({ noAi = false, forcedMessage }: Options = {}) {
+  const queueRef = useRef<string[]>(forcedMessage ? [forcedMessage] : []);
   const fetchingRef = useRef(false);
-  const [size, setSize] = useState(0);
+  const [size, setSize] = useState(forcedMessage ? 1 : 0);
 
   const refill = useCallback(async () => {
     if (fetchingRef.current) {
+      return;
+    }
+    if (forcedMessage) {
+      queueRef.current.push(forcedMessage);
+      setSize(queueRef.current.length);
+      return;
+    }
+    if (noAi) {
       return;
     }
     fetchingRef.current = true;
@@ -47,9 +60,8 @@ export function useMessageQueue() {
       queueRef.current.push(phrase);
       setSize(queueRef.current.length);
     }
-  }, []);
+  }, [noAi, forcedMessage]);
 
-  // Keep the queue topped up
   useEffect(() => {
     if (size < MIN_QUEUE) {
       refill().catch(() => undefined);

@@ -1,6 +1,7 @@
 import { useAnimation, useWindowSize } from "ink";
 import { useCallback, useEffect, useState } from "react";
 import { randomChar } from "./chars.js";
+import type { Config } from "./config.js";
 import { useMessageQueue } from "./use-message-queue.js";
 
 const MUTATION_RATE = 0.04;
@@ -32,7 +33,13 @@ export interface MatrixColumn {
   tailLen: number;
 }
 
-function makeColumn(rows: number, initialDelay: number): ColumnState {
+function makeColumn(
+  rows: number,
+  initialDelay: number,
+  speedMultiplier: number,
+  density: number
+): ColumnState {
+  const dormant = Math.random() > density;
   return {
     cells: new Array<string | null>(rows).fill(null),
     ages: new Array<number>(rows).fill(-1),
@@ -40,9 +47,9 @@ function makeColumn(rows: number, initialDelay: number): ColumnState {
     head: -1,
     headAcc: 0,
     message: null,
-    speed: 0.3 + Math.random() * 0.7,
+    speed: (0.3 + Math.random() * 0.7) * speedMultiplier,
     tailLen: 8 + Math.floor(Math.random() * 12),
-    restartIn: initialDelay,
+    restartIn: dormant ? 99_999 : initialDelay,
   };
 }
 
@@ -187,24 +194,37 @@ function tickColumn(
   };
 }
 
-export function useMatrixState() {
+export function useMatrixState(config: Config) {
   const { columns, rows } = useWindowSize();
   const { frame } = useAnimation({ interval: 50 });
-  const { dequeue, hasMessages } = useMessageQueue();
+  const { dequeue, hasMessages } = useMessageQueue({
+    noAi: config.noAi,
+    forcedMessage: config.message,
+  });
 
   const [cols, setCols] = useState<ColumnState[]>(() =>
     Array.from({ length: columns }, () =>
-      makeColumn(rows, Math.floor(Math.random() * columns))
+      makeColumn(
+        rows,
+        Math.floor(Math.random() * columns),
+        config.speed,
+        config.density
+      )
     )
   );
 
   useEffect(() => {
     setCols(
       Array.from({ length: columns }, () =>
-        makeColumn(rows, Math.floor(Math.random() * 20))
+        makeColumn(
+          rows,
+          Math.floor(Math.random() * 20),
+          config.speed,
+          config.density
+        )
       )
     );
-  }, [columns, rows]);
+  }, [columns, rows, config.speed, config.density]);
 
   const tick = useCallback(
     (prev: ColumnState[]) => {
