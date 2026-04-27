@@ -1,23 +1,37 @@
 import { Box, Text } from "ink";
 import type { MatrixColumn } from "./use-matrix-state.js";
 
-interface CellColor {
-  bold?: boolean;
-  color: string;
-  dimColor?: boolean;
+type RGB = readonly [number, number, number];
+
+// Phosphor gradient stops: [0–1 position, RGB]
+// Matches the film's characteristic white head → pale phosphor → matrix green → dark fade
+const STOPS: readonly [number, RGB][] = [
+  [0.0, [0xff, 0xff, 0xff]], // head: pure white
+  [0.05, [0xcc, 0xff, 0xcc]], // near-head: pale phosphor
+  [0.15, [0x00, 0xff, 0x41]], // classic matrix green
+  [0.6, [0x00, 0xcc, 0x33]], // mid green
+  [0.85, [0x00, 0x77, 0x22]], // dim green
+  [1.0, [0x00, 0x33, 0x11]], // near-fade
+];
+
+function lerpChannel(a: number, b: number, t: number): number {
+  return Math.round(a + (b - a) * t);
 }
 
-function cellStyle(age: number, tailLen: number): CellColor {
-  if (age === 0) {
-    return { color: "white", bold: true };
+function phosphorColor(age: number, tailLen: number): string {
+  const t = Math.min(age / tailLen, 1);
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const [p0, c0] = STOPS[i] as [number, RGB];
+    const [p1, c1] = STOPS[i + 1] as [number, RGB];
+    if (t >= p0 && t <= p1) {
+      const s = (t - p0) / (p1 - p0);
+      const r = lerpChannel(c0[0], c1[0], s).toString(16).padStart(2, "0");
+      const g = lerpChannel(c0[1], c1[1], s).toString(16).padStart(2, "0");
+      const b = lerpChannel(c0[2], c1[2], s).toString(16).padStart(2, "0");
+      return `#${r}${g}${b}`;
+    }
   }
-  if (age <= 2) {
-    return { color: "greenBright" };
-  }
-  if (age <= Math.floor(tailLen * 0.6)) {
-    return { color: "green" };
-  }
-  return { color: "green", dimColor: true };
+  return "#003311";
 }
 
 interface Props extends MatrixColumn {
@@ -35,9 +49,9 @@ export default function Column({ cells, ages, tailLen, rows }: Props) {
           return <Text key={r}> </Text>;
         }
 
-        const { color, bold, dimColor } = cellStyle(age, tailLen);
+        const color = phosphorColor(age, tailLen);
         return (
-          <Text bold={bold} color={color} dimColor={dimColor} key={r}>
+          <Text bold={age === 0} color={color} key={r}>
             {char}
           </Text>
         );
