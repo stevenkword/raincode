@@ -52,18 +52,119 @@ zmatrix
 zmatrix [options]
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--speed <n>` | `1.0` | Animation speed multiplier |
-| `--density <n>` | `1.0` | Fraction of columns actively raining (0.0–1.0) |
-| `--theme <name>` | `classic` | Named color theme (see below) |
-| `--color <hex>` | — | Override the base rain color, e.g. `#00ff41` |
-| `--message <text>` | — | Pin a message to cycle through the rain |
-| `--timeout <s>` | — | Exit automatically after N seconds; shows a countdown |
-| `--no-ai` | `false` | Disable AI-generated messages |
-| `--help` | — | Print this usage text |
-
 Press `q` or `Ctrl-C` to exit at any time.
+
+---
+
+### `--speed <n>`
+
+**Default:** `1.0`
+
+A floating-point multiplier applied to every column's fall speed. Each column already has a randomized base speed; this scales all of them together.
+
+| Value | Effect |
+|-------|--------|
+| `0.25` | Very slow, contemplative |
+| `0.5` | Half speed — good for readability |
+| `1.0` | Default film-like pace |
+| `2.0` | Double speed |
+| `4.0` | Frantic, barely legible |
+
+There is no hard cap, but values above `5.0` will outpace the 50 ms render tick and produce no visible difference.
+
+---
+
+### `--density <n>`
+
+**Default:** `1.0`
+
+A value between `0.0` and `1.0` controlling what fraction of terminal columns are actively raining. Columns that lose the density roll are dormant for the entire session.
+
+| Value | Effect |
+|-------|--------|
+| `1.0` | Every column active (default) |
+| `0.75` | ~¾ of columns active |
+| `0.5` | Half the screen raining — open, sparse look |
+| `0.25` | Scattered individual streams |
+| `0.1` | Barely there |
+
+---
+
+### `--theme <name>`
+
+**Default:** `classic`
+
+Selects a named color preset. Each theme defines a head color (the leading cell) and a base color (the body of the tail). The full phosphor gradient is derived from those two values.
+
+| Name | Head | Base | Description |
+|------|------|------|-------------|
+| `classic` | white | `#00ff41` | Film-accurate matrix green |
+| `blue` | white | `#4488ff` | Zion operator console |
+| `red` | white | `#ff2200` | Red pill / danger |
+| `architect` | white | `#ffffff` | The Architect's white room |
+| `amber` | white | `#ffaa00` | Old-school phosphor amber |
+
+Can be combined with `--color` to use a theme's head color with a custom base.
+
+---
+
+### `--color <hex>`
+
+**Default:** none (uses the theme's base color)
+
+Overrides the base rain color with any 24-bit hex value. The head remains white and the full phosphor gradient is rebuilt from this color. Accepts standard CSS hex notation.
+
+```bash
+zmatrix --color "#00ccff"   # cyan
+zmatrix --color "#ff00ff"   # magenta
+zmatrix --color "#ffffff"   # all white (same as --theme architect)
+```
+
+---
+
+### `--message <text>`
+
+**Default:** none (AI-generated messages are used instead)
+
+Pins a specific message to cycle through the rain indefinitely. The text is uppercased and stripped of punctuation automatically. At most two columns spell out a message simultaneously; the rest continue as normal rain.
+
+Messages longer than 12 characters will be truncated to fit within a column. For multi-word phrases, spaces are preserved as blank cells in the rain.
+
+```bash
+zmatrix --message "WAKE UP"
+zmatrix --message "FOLLOW THE WHITE RABBIT"
+zmatrix --message "THERE IS NO SPOON"
+```
+
+When `--message` is set, AI generation is automatically bypassed.
+
+---
+
+### `--timeout <s>`
+
+**Default:** none (runs indefinitely)
+
+Exits cleanly after the given number of seconds. A `MM:SS` countdown is displayed in the bottom-right corner of the screen while the timer is running, rendered in the active theme's base color.
+
+```bash
+zmatrix --timeout 60     # 1 minute
+zmatrix --timeout 300    # 5 minutes — useful as a screensaver
+zmatrix --timeout 3600   # 1 hour
+```
+
+---
+
+### `--no-ai`
+
+Disables the AI message queue entirely. The rain runs as pure noise with no phrases surfacing. Use this if you have no API key configured, want a lower-distraction display, or are in an offline environment.
+
+---
+
+### `--help`
+
+Prints a short usage reference and exits.
+
+---
 
 ### Themes
 
@@ -74,6 +175,8 @@ Press `q` or `Ctrl-C` to exit at any time.
 | `red` | Red pill / danger |
 | `architect` | The Architect's white room |
 | `amber` | Old-school phosphor amber |
+
+---
 
 ### Examples
 
