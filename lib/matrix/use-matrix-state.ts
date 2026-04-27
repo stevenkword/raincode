@@ -1,16 +1,25 @@
 import { useAnimation, useWindowSize } from "ink";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { randomChar } from "./chars.js";
+import { useMessageQueue } from "./use-message-queue.js";
 
-const MUTATION_RATE = 0.04; // probability a tail cell re-rolls its glyph each tick
-const FLASH_PROB = 0.005; // probability per column per tick of a burst flash
+const MUTATION_RATE = 0.04;
+const FLASH_PROB = 0.005;
+const MESSAGE_PROB = 0.05; // probability a restarting column claims the next message
+const MAX_MESSAGE_COLS = 2; // at most this many columns spell out a message at once
+
+interface MessageState {
+  chars: string[];
+  pos: number;
+}
 
 interface ColumnState {
   ages: number[];
   cells: (string | null)[];
-  flashes: number[]; // per-cell countdown (ticks remaining); 0 = not flashing
+  flashes: number[];
   head: number;
   headAcc: number;
+  message: MessageState | null;
   restartIn: number;
   speed: number;
   tailLen: number;
@@ -30,6 +39,7 @@ function makeColumn(rows: number, initialDelay: number): ColumnState {
     flashes: new Array<number>(rows).fill(0),
     head: -1,
     headAcc: 0,
+    message: null,
     speed: 0.3 + Math.random() * 0.7,
     tailLen: 8 + Math.floor(Math.random() * 12),
     restartIn: initialDelay,
@@ -92,24 +102,48 @@ function advanceHead(
   ages: number[],
   flashes: number[],
   rows: number
-): { head: number; headAcc: number } {
+): { head: number; headAcc: number; message: MessageState | null } {
   let { head, headAcc } = col;
+  let message = col.message;
   headAcc += col.speed;
+
   while (headAcc >= 1) {
     head++;
     headAcc--;
     if (head >= 0 && head < rows) {
-      cells[head] = randomChar();
+      if (message !== null && message.pos < message.chars.length) {
+        cells[head] = message.chars[message.pos] ?? randomChar();
+        message = { chars: message.chars, pos: message.pos + 1 };
+      } else {
+        cells[head] = randomChar();
+        if (message !== null) {
+          message = null; // message exhausted
+        }
+      }
       ages[head] = 0;
       flashes[head] = 0;
     }
   }
-  return { head, headAcc };
+
+  return { head, headAcc, message };
 }
 
-function tickColumn(col: ColumnState, rows: number): ColumnState {
+function tickColumn(
+  col: ColumnState,
+  rows: number,
+  nextMessage?: string
+): ColumnState {
   if (col.restartIn > 0) {
-    return { ...col, restartIn: col.restartIn - 1 };
+    const newRestartIn = col.restartIn - 1;
+    // Claim the message at the last countdown tick so it's ready when rain starts
+    if (newRestartIn === 0 && nextMessage !== undefined) {
+      return {
+        ...col,
+        restartIn: 0,
+        message: { chars: [...nextMessage], pos: 0 },
+      };
+    }
+    return { ...col, restartIn: newRestartIn };
   }
 
   const newAges = col.ages.map((age) => (age >= 0 ? age + 1 : -1));
@@ -120,7 +154,7 @@ function tickColumn(col: ColumnState, rows: number): ColumnState {
   mutateCells(newAges, newCells, rows);
   applyFlashBurst(newAges, newFlashes);
 
-  const { head, headAcc } = advanceHead(
+  const { head, headAcc, message } = advanceHead(
     col,
     newCells,
     newAges,
@@ -137,6 +171,7 @@ function tickColumn(col: ColumnState, rows: number): ColumnState {
       flashes: new Array<number>(rows).fill(0),
       head: -1,
       headAcc: 0,
+      message: null,
       restartIn: Math.floor(Math.random() * 50) + 10,
     };
   }
@@ -148,12 +183,14 @@ function tickColumn(col: ColumnState, rows: number): ColumnState {
     flashes: newFlashes,
     head,
     headAcc,
+    message,
   };
 }
 
 export function useMatrixState() {
   const { columns, rows } = useWindowSize();
   const { frame } = useAnimation({ interval: 50 });
+  const { dequeue, hasMessages } = useMessageQueue();
 
   const [cols, setCols] = useState<ColumnState[]>(() =>
     Array.from({ length: columns }, () =>
@@ -169,10 +206,25 @@ export function useMatrixState() {
     );
   }, [columns, rows]);
 
+  const tick = useCallback(
+    (prev: ColumnState[]) => {
+      const activeMessages = prev.filter((c) => c.message !== null).length;
+      return prev.map((col) => {
+        const canClaim =
+          hasMessages &&
+          activeMessages < MAX_MESSAGE_COLS &&
+          col.restartIn === 1 &&
+          Math.random() < MESSAGE_PROB;
+        return tickColumn(col, rows, canClaim ? dequeue() : undefined);
+      });
+    },
+    [rows, dequeue, hasMessages]
+  );
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: frame is an intentional tick trigger
   useEffect(() => {
-    setCols((prev) => prev.map((col) => tickColumn(col, rows)));
-  }, [frame, rows]);
+    setCols(tick);
+  }, [frame, tick]);
 
   return {
     columns: cols.map(
