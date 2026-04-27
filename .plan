@@ -79,9 +79,102 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 
 ## Phases
 
-1. **Setup** — add `ink` dependency, create entry point, confirm Ink renders to terminal
-2. **Characters** — implement `chars.ts` with katakana + digit + latin sets, random picker
-3. **State hook** — `useMatrixState` with tick loop, column advance logic, resize handling
-4. **Column component** — `Column.tsx` renders cells with correct colour/bold
-5. **App shell** — wire columns together, keyboard controls
+1. **Setup** — add `ink` dependency, create entry point, confirm Ink renders to terminal ✓
+2. **Characters** — implement `chars.ts` with katakana + digit + latin sets, random picker ✓
+3. **State hook** — `useMatrixState` with tick loop, column advance logic, resize handling ✓
+4. **Column component** — `Column.tsx` renders cells with correct colour/bold ✓
+5. **App shell** — wire columns together, keyboard controls ✓
 6. **Polish** — colour gradient tuning, speed variance, startup rain-in effect
+7. **Authentic character set** — replace generic katakana range with the exact glyphs from the film
+8. **True-colour phosphor gradient** — full 24-bit RGB tail fade
+9. **Character mutation & glitch** — tail cells randomly re-roll their glyph; occasional flash bursts
+10. **Hidden AI messages** — Claude streams Matrix-themed text; letters surface one-by-one in the rain then dissolve
+11. **CLI flags & themes** — `--speed`, `--density`, `--color`, `--message`; named themes (classic, blue, red, architect)
+12. **Screensaver polish** — cursor hide/restore, alternate screen buffer, `--timeout`, proper SIGTERM cleanup
+
+---
+
+## Phase Detail
+
+### Phase 7 — Authentic character set
+
+The film's digital rain was designed by Simon Whiteley using characters from a Japanese sushi cookbook. The actual set is:
+- **Katakana** (half-width, `ｦ`–`ﾝ`, U+FF66–U+FF9D) — already present, keep
+- **Mirrored / custom glyphs** — several Latin letters rendered backwards or upside-down (Unicode has some of these in Letterlike Symbols and Mathematical Alphanumerics)
+- **Film-accurate symbols** — `:`, `"`, `-`, `=`, `*`, `+`, `|`, `<`, `>` and a handful of box-drawing chars
+- Retire generic A–Z / a–z Latin; replace with the smaller, film-accurate symbol set
+
+Update `chars.ts`. No other files change.
+
+### Phase 8 — True-colour phosphor gradient
+
+Modern terminals support 24-bit colour via `\x1b[38;2;R;G;Bm`. Ink passes colour strings through Chalk, which supports `#RRGGBB` hex.
+
+Gradient across tail positions (age 0 → tailLen):
+
+| Age | Hex | Description |
+|-----|-----|-------------|
+| 0 | `#FFFFFF` | Head — pure white |
+| 1 | `#CCFFCC` | Near-head — pale phosphor |
+| 2–3 | `#00FF41` | Classic matrix green |
+| 4–60% of tail | `#00CC33` | Mid green |
+| 60–85% | `#007722` | Dim green |
+| 85–100% | `#003311` | Near-fade |
+
+Compute hex dynamically in `cellStyle()` as a lerp across the gradient stops.
+
+### Phase 9 — Character mutation & glitch
+
+Two independent effects:
+
+**Mutation**: each tail cell has a `mutationRate` (default 4%). Each tick, if `Math.random() < mutationRate`, the cell gets a new random char. Head cells always re-roll (already implemented).
+
+**Flash burst**: once every ~200 ticks, a random existing tail cell briefly lights up to near-head brightness for 1–2 ticks before returning to its age-correct colour. Stores `flashUntil: number` (tick index) alongside the cell.
+
+Both are stored in `ColumnState` / `Cell` and applied in `tickColumn`.
+
+### Phase 10 — Hidden AI messages
+
+**Goal**: words and short phrases (≤ 12 chars) appear spelled out vertically in a single column, letter by letter as the rain falls, then dissolve back to noise — exactly like the hidden text easter eggs in the film.
+
+**Implementation**:
+- Add `lib/matrix/use-message-queue.ts` — calls `streamText` from the AI SDK with a system prompt asking for short Matrix-themed phrases (< 12 chars, one per response)
+- Messages are queued; when a column becomes free (restartIn > 0), it may be "claimed" for a message run
+- During a message run, instead of random chars the head places the next letter of the message; remaining positions fill normally
+- After the message completes the column returns to normal rain
+
+**AI prompt**: `"You are the Matrix. Output a single cryptic phrase of 4–12 characters (letters and spaces only, no punctuation). Examples: WAKE UP, FOLLOW THE WHITE RABBIT, THE MATRIX HAS YOU, THERE IS NO SPOON."`
+
+### Phase 11 — CLI flags & themes
+
+Use a minimal CLI parser (`lib/matrix/cli.ts`) — no heavy deps, just `process.argv` parsing.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--speed <n>` | `1.0` | Global speed multiplier |
+| `--density <n>` | `1.0` | Fraction of columns actively raining |
+| `--color <hex>` | `#00FF41` | Override base green |
+| `--theme <name>` | `classic` | Named preset (see below) |
+| `--message <text>` | — | Force a specific message into the rain |
+| `--timeout <s>` | — | Auto-exit after N seconds |
+| `--no-ai` | false | Disable AI message generation |
+
+**Themes**:
+
+| Name | Head | Base | Description |
+|------|------|------|-------------|
+| `classic` | `#FFFFFF` | `#00FF41` | Film-accurate green |
+| `blue` | `#FFFFFF` | `#4488FF` | Zion operator console |
+| `red` | `#FFFFFF` | `#FF2200` | Red pill / danger |
+| `architect` | `#FFFFFF` | `#FFFFFF` | The Architect's white room |
+| `amber` | `#FFFFFF` | `#FFAA00` | Old-school phosphor amber |
+
+Config file at `~/.config/zmatrix/config.json` (parsed on startup, overridden by flags).
+
+### Phase 12 — Screensaver polish
+
+- On start: hide cursor (`\x1b[?25l`), switch to alternate screen buffer (`\x1b[?1049h`)
+- On exit (SIGTERM, SIGINT, `q`): restore cursor and main buffer (`\x1b[?25h`, `\x1b[?1049l`)
+- `--timeout <s>`: render a fading countdown in the corner, then exit cleanly
+- macOS: call `caffeinate -w $PID &` in a child process to prevent sleep during screensaver use
+- Ink's `render()` already handles stdout; wrap in a try/finally to guarantee terminal restoration even on crash
