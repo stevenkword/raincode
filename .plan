@@ -90,7 +90,39 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 9. **Character mutation & glitch** — tail cells randomly re-roll their glyph; occasional flash bursts
 10. **Hidden AI messages** — Claude streams Matrix-themed text; letters surface one-by-one in the rain then dissolve
 11. **CLI flags & themes** — `--speed`, `--density`, `--color`, `--message`; named themes (classic, blue, red, architect)
-12. **Screensaver polish** — cursor hide/restore, alternate screen buffer, `--timeout`, proper SIGTERM cleanup
+12. **Screensaver polish** — cursor hide/restore, alternate screen buffer, `--timeout`, proper SIGTERM cleanup ✓
+13. **Overlapping streams** — allow a single column to have two independent heads at different vertical positions simultaneously, one catching up to another
+14. **Skewed speed distribution** — replace uniform random speed with a skewed curve: most columns slow, a small number very fast (strobing)
+15. **Message dissolve** — after a message phrase finishes spelling out, the cells dissolve back into noise with a dedicated per-cell fade rather than aging out like normal rain
+
+### Phase 13 — Overlapping streams
+
+Currently each column has a single `head` integer and goes dormant (`restartIn`) when it exits the bottom. The film frequently shows two streams in the same column at different depths — a new stream spawning near the top while an older one is still fading out lower down.
+
+**Implementation**:
+- Replace the single `head`/`headAcc`/`speed`/`tailLen`/`message`/`restartIn` fields in `ColumnState` with a `streams: StreamState[]` array (max 2)
+- Each `StreamState` carries its own `head`, `headAcc`, `speed`, `tailLen`, `message`, and `restartIn`
+- On each tick, advance all streams independently; ages/cells/flashes arrays are still flat (one per row) — the brightest/youngest value wins when two streams overlap the same cell
+- A new stream may spawn in a column when the existing stream's head has advanced past ~30% of the column height and a random roll passes, so streams never start simultaneously at the top
+
+### Phase 14 — Skewed speed distribution
+
+Replace `0.3 + Math.random() * 0.7` with a distribution that matches the film: the majority of streams fall at a moderate pace, with a small fraction (≈10%) moving very fast.
+
+**Implementation**:
+- Use a weighted random: 90% of columns sample from `0.3 + Math.random() * 0.5` (slow-to-moderate), 10% sample from `1.5 + Math.random() * 1.5` (fast)
+- Apply `speedMultiplier` on top as before
+- Update `makeColumn` / `makeStream` (after Phase 13) to use the new sampler
+
+### Phase 15 — Message dissolve
+
+Currently message cells age out identically to rain cells. In the film, after a hidden phrase finishes, the letters visibly shimmer and dissolve back into random noise over 3–5 ticks — distinct from the normal tail fade.
+
+**Implementation**:
+- Add a `dissolveFor: number` counter to each cell (stored alongside `ages`/`cells`/`flashes`)
+- When a stream's message is exhausted, mark each message cell with `dissolveFor = 3 + Math.floor(Math.random() * 3)`
+- Each tick, dissolving cells re-roll their glyph and decrease `dissolveFor`; their color interpolates from message-green toward the normal age-based gradient color over the dissolve window
+- When `dissolveFor` reaches 0 the cell returns to normal rain behavior
 
 ---
 

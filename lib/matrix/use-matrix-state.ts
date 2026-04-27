@@ -1,23 +1,27 @@
 import { useAnimation, useWindowSize } from "ink";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { randomChar } from "./chars.js";
 import type { Config } from "./config.js";
 import { useMessageQueue } from "./use-message-queue.js";
 
 const MUTATION_RATE = 0.04;
 const FLASH_PROB = 0.005;
-const MESSAGE_PROB = 0.05; // probability a restarting column claims the next message
-const MAX_MESSAGE_COLS = 2; // at most this many columns spell out a message at once
+const MESSAGE_PROB = 0.05;
+const MAX_MESSAGE_COLS = 2;
+const MAX_STREAMS = 2;
+const SECOND_STREAM_THRESHOLD = 0.3;
+const SECOND_STREAM_PROB = 0.003;
+
+const SPEED_STEP = 0.25;
+const SPEED_MIN = 0.1;
+const SPEED_MAX = 5.0;
 
 interface MessageState {
   chars: string[];
   pos: number;
 }
 
-interface ColumnState {
-  ages: number[];
-  cells: (string | null)[];
-  flashes: number[];
+interface StreamState {
   head: number;
   headAcc: number;
   message: MessageState | null;
@@ -26,11 +30,40 @@ interface ColumnState {
   tailLen: number;
 }
 
+interface ColumnState {
+  ages: number[];
+  cells: (string | null)[];
+  dissolves: number[];
+  flashes: number[];
+  streams: StreamState[];
+  tailLens: number[];
+}
+
 export interface MatrixColumn {
   ages: number[];
   cells: (string | null)[];
   flashes: number[];
-  tailLen: number;
+  tailLens: number[];
+}
+
+function randomSpeed(multiplier: number): number {
+  const fast = Math.random() < 0.1;
+  const base = fast ? 1.5 + Math.random() * 1.5 : 0.3 + Math.random() * 0.5;
+  return base * multiplier;
+}
+
+function makeStream(
+  initialDelay: number,
+  speedMultiplier: number
+): StreamState {
+  return {
+    head: -1,
+    headAcc: 0,
+    message: null,
+    restartIn: initialDelay,
+    speed: randomSpeed(speedMultiplier),
+    tailLen: 8 + Math.floor(Math.random() * 12),
+  };
 }
 
 function makeColumn(
@@ -41,15 +74,12 @@ function makeColumn(
 ): ColumnState {
   const dormant = Math.random() > density;
   return {
-    cells: new Array<string | null>(rows).fill(null),
     ages: new Array<number>(rows).fill(-1),
+    cells: new Array<string | null>(rows).fill(null),
+    dissolves: new Array<number>(rows).fill(0),
     flashes: new Array<number>(rows).fill(0),
-    head: -1,
-    headAcc: 0,
-    message: null,
-    speed: (0.3 + Math.random() * 0.7) * speedMultiplier,
-    tailLen: 8 + Math.floor(Math.random() * 12),
-    restartIn: dormant ? 99_999 : initialDelay,
+    tailLens: new Array<number>(rows).fill(12),
+    streams: [makeStream(dormant ? 99_999 : initialDelay, speedMultiplier)],
   };
 }
 
@@ -57,11 +87,12 @@ function expireCells(
   ages: number[],
   cells: (string | null)[],
   flashes: number[],
-  tailLen: number,
+  dissolves: number[],
+  tailLens: number[],
   rows: number
 ): void {
   for (let r = 0; r < rows; r++) {
-    if ((ages[r] ?? -1) > tailLen) {
+    if ((ages[r] ?? -1) > (tailLens[r] ?? 12) && (dissolves[r] ?? 0) === 0) {
       ages[r] = -1;
       cells[r] = null;
       flashes[r] = 0;
@@ -72,14 +103,18 @@ function expireCells(
 function mutateCells(
   ages: number[],
   cells: (string | null)[],
+  dissolves: number[],
   rows: number
 ): void {
   for (let r = 0; r < rows; r++) {
-    if (
-      (ages[r] ?? -1) > 0 &&
-      cells[r] !== null &&
-      Math.random() < MUTATION_RATE
-    ) {
+    if ((ages[r] ?? -1) < 0 || cells[r] === null) {
+      continue;
+    }
+    const dissolve = dissolves[r] ?? 0;
+    if (dissolve > 0) {
+      cells[r] = randomChar();
+      dissolves[r] = dissolve - 1;
+    } else if ((ages[r] ?? -1) > 0 && Math.random() < MUTATION_RATE) {
       cells[r] = randomChar();
     }
   }
@@ -104,15 +139,23 @@ function applyFlashBurst(ages: number[], flashes: number[]): void {
 }
 
 function advanceHead(
-  col: ColumnState,
+  stream: StreamState,
   cells: (string | null)[],
   ages: number[],
   flashes: number[],
+  tailLens: number[],
+  dissolves: number[],
   rows: number
-): { head: number; headAcc: number; message: MessageState | null } {
-  let { head, headAcc } = col;
-  let message = col.message;
-  headAcc += col.speed;
+): {
+  head: number;
+  headAcc: number;
+  justExhaustedMessage: boolean;
+  message: MessageState | null;
+} {
+  let { head, headAcc } = stream;
+  let { message } = stream;
+  let justExhaustedMessage = false;
+  headAcc += stream.speed;
 
   while (headAcc >= 1) {
     head++;
@@ -124,79 +167,135 @@ function advanceHead(
       } else {
         cells[head] = randomChar();
         if (message !== null) {
-          message = null; // message exhausted
+          message = null;
+          justExhaustedMessage = true;
         }
       }
       ages[head] = 0;
       flashes[head] = 0;
+      tailLens[head] = stream.tailLen;
+      dissolves[head] = 0;
     }
   }
 
-  return { head, headAcc, message };
+  return { head, headAcc, message, justExhaustedMessage };
+}
+
+function tickStream(
+  stream: StreamState,
+  cells: (string | null)[],
+  ages: number[],
+  flashes: number[],
+  tailLens: number[],
+  dissolves: number[],
+  rows: number,
+  nextMessage?: string
+): StreamState {
+  if (stream.restartIn > 0) {
+    const newRestartIn = stream.restartIn - 1;
+    if (newRestartIn === 0 && nextMessage !== undefined) {
+      return {
+        ...stream,
+        restartIn: 0,
+        message: { chars: [...nextMessage], pos: 0 },
+      };
+    }
+    return { ...stream, restartIn: newRestartIn };
+  }
+
+  const { head, headAcc, message, justExhaustedMessage } = advanceHead(
+    stream,
+    cells,
+    ages,
+    flashes,
+    tailLens,
+    dissolves,
+    rows
+  );
+
+  if (justExhaustedMessage) {
+    for (let r = 0; r < rows; r++) {
+      if (
+        (ages[r] ?? -1) >= 0 &&
+        cells[r] !== null &&
+        (dissolves[r] ?? 0) === 0
+      ) {
+        dissolves[r] = 3 + Math.floor(Math.random() * 3);
+      }
+    }
+  }
+
+  if (head >= rows + stream.tailLen) {
+    return {
+      ...stream,
+      head: -1,
+      headAcc: 0,
+      message: null,
+      restartIn: Math.floor(Math.random() * 50) + 10,
+      tailLen: 8 + Math.floor(Math.random() * 12),
+    };
+  }
+
+  return { ...stream, head, headAcc, message };
 }
 
 function tickColumn(
   col: ColumnState,
   rows: number,
+  speedMultiplier: number,
   nextMessage?: string
 ): ColumnState {
-  if (col.restartIn > 0) {
-    const newRestartIn = col.restartIn - 1;
-    // Claim the message at the last countdown tick so it's ready when rain starts
-    if (newRestartIn === 0 && nextMessage !== undefined) {
-      return {
-        ...col,
-        restartIn: 0,
-        message: { chars: [...nextMessage], pos: 0 },
-      };
-    }
-    return { ...col, restartIn: newRestartIn };
-  }
-
   const newAges = col.ages.map((age) => (age >= 0 ? age + 1 : -1));
   const newCells = [...col.cells];
   const newFlashes = col.flashes.map((f) => Math.max(0, f - 1));
+  const newDissolves = [...col.dissolves];
+  const newTailLens = [...col.tailLens];
 
-  expireCells(newAges, newCells, newFlashes, col.tailLen, rows);
-  mutateCells(newAges, newCells, rows);
+  expireCells(newAges, newCells, newFlashes, newDissolves, newTailLens, rows);
+  mutateCells(newAges, newCells, newDissolves, rows);
   applyFlashBurst(newAges, newFlashes);
 
-  const { head, headAcc, message } = advanceHead(
-    col,
-    newCells,
-    newAges,
-    newFlashes,
-    rows
+  const newStreams = col.streams.map((stream, i) =>
+    tickStream(
+      stream,
+      newCells,
+      newAges,
+      newFlashes,
+      newTailLens,
+      newDissolves,
+      rows,
+      i === 0 ? nextMessage : undefined
+    )
   );
 
-  const anyActive = newAges.some((a) => a >= 0);
-  if (head >= rows && !anyActive) {
-    return {
-      ...col,
-      cells: new Array<string | null>(rows).fill(null),
-      ages: new Array<number>(rows).fill(-1),
-      flashes: new Array<number>(rows).fill(0),
-      head: -1,
-      headAcc: 0,
-      message: null,
-      restartIn: Math.floor(Math.random() * 50) + 10,
-    };
+  // Secondary streams are ephemeral — remove them once they complete (restartIn > 0 means just reset)
+  const filteredStreams = newStreams.filter(
+    (s, i) => i === 0 || s.restartIn === 0
+  );
+
+  // Possibly spawn a second stream once the primary is far enough down
+  const primary = filteredStreams[0];
+  if (
+    filteredStreams.length < MAX_STREAMS &&
+    primary !== undefined &&
+    primary.restartIn === 0 &&
+    primary.head >= Math.floor(rows * SECOND_STREAM_THRESHOLD) &&
+    primary.head < rows &&
+    Math.random() < SECOND_STREAM_PROB
+  ) {
+    filteredStreams.push(makeStream(0, speedMultiplier));
   }
 
   return {
     ...col,
-    cells: newCells,
     ages: newAges,
+    cells: newCells,
+    dissolves: newDissolves,
     flashes: newFlashes,
-    head,
-    headAcc,
-    message,
+    streams: filteredStreams,
+    tailLens: newTailLens,
   };
 }
-
-const SPEED_STEP = 0.25;
-const SPEED_MIN = 0.1;
-const SPEED_MAX = 5.0;
 
 export function useMatrixState(config: Config) {
   const { columns, rows } = useWindowSize();
@@ -207,6 +306,10 @@ export function useMatrixState(config: Config) {
   });
 
   const [speedMultiplier, setSpeedMultiplier] = useState(config.speed);
+  const speedRef = useRef(speedMultiplier);
+  useEffect(() => {
+    speedRef.current = speedMultiplier;
+  }, [speedMultiplier]);
 
   const [cols, setCols] = useState<ColumnState[]>(() =>
     Array.from({ length: columns }, () =>
@@ -219,14 +322,13 @@ export function useMatrixState(config: Config) {
     )
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: speedMultiplier intentionally excluded — resetting columns on every +/- keypress would be jarring
   useEffect(() => {
     setCols(
       Array.from({ length: columns }, () =>
         makeColumn(
           rows,
           Math.floor(Math.random() * 20),
-          speedMultiplier,
+          speedRef.current,
           config.density
         )
       )
@@ -246,23 +348,32 @@ export function useMatrixState(config: Config) {
         makeColumn(
           rows,
           Math.floor(Math.random() * 20),
-          speedMultiplier,
+          speedRef.current,
           config.density
         )
       )
     );
-  }, [columns, rows, speedMultiplier, config.density]);
+  }, [columns, rows, config.density]);
 
   const tick = useCallback(
     (prev: ColumnState[]) => {
-      const activeMessages = prev.filter((c) => c.message !== null).length;
+      const activeMessages = prev.filter((c) =>
+        c.streams.some((s) => s.message !== null)
+      ).length;
       return prev.map((col) => {
+        const primary = col.streams[0];
         const canClaim =
           hasMessages &&
           activeMessages < MAX_MESSAGE_COLS &&
-          col.restartIn === 1 &&
+          primary !== undefined &&
+          primary.restartIn === 1 &&
           Math.random() < MESSAGE_PROB;
-        return tickColumn(col, rows, canClaim ? dequeue() : undefined);
+        return tickColumn(
+          col,
+          rows,
+          speedRef.current,
+          canClaim ? dequeue() : undefined
+        );
       });
     },
     [rows, dequeue, hasMessages]
@@ -283,7 +394,7 @@ export function useMatrixState(config: Config) {
         cells: col.cells,
         ages: col.ages,
         flashes: col.flashes,
-        tailLen: col.tailLen,
+        tailLens: col.tailLens,
       })
     ),
     terminalRows: rows,

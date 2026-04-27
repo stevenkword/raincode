@@ -11,7 +11,7 @@ export default function Column({
   cells,
   ages,
   flashes,
-  tailLen,
+  tailLens,
   rows,
   stops,
 }: Props) {
@@ -31,7 +31,9 @@ export default function Column({
         }
 
         const flashing = (flashes[r] ?? 0) > 0;
-        const color = flashing ? flashHex : phosphorColor(age, tailLen, stops);
+        const color = flashing
+          ? flashHex
+          : phosphorColor(age, tailLens[r] ?? 12, stops);
         return (
           <Text bold={age === 0} color={color} key={r}>
             {char}

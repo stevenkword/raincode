@@ -100,7 +100,7 @@ export default function App({ config }: Props) {
           key={i}
           rows={terminalRows}
           stops={stops}
-          tailLen={col.tailLen}
+          tailLens={col.tailLens}
         />
       ))}
       {config.timeout && (
