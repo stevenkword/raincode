@@ -1,0 +1,87 @@
+# zmatrix — React Ink cmatrix Clone
+
+## Goal
+
+Build a faithful `cmatrix`-style terminal animation using React Ink: cascading columns of random characters (katakana, digits, latin) scrolling downward with a bright "head" and fading green "tail".
+
+---
+
+## Architecture
+
+### Entry point
+
+A standalone CLI script at `bin/matrix.tsx`, run via `bun bin/matrix.tsx`.
+React Ink renders to stdout; no Next.js involvement.
+
+### Dependencies to add
+
+- `ink` — React renderer for the terminal
+- `ink-use-stdout-dimensions` (or Ink's built-in `useStdoutDimensions`) — detect terminal width/height
+
+### Core files
+
+| File | Purpose |
+|------|---------|
+| `bin/matrix.tsx` | Entry point — renders `<App />` via `ink` |
+| `lib/matrix/useMatrixState.ts` | Hook managing column state and the tick loop |
+| `lib/matrix/Column.tsx` | Ink component rendering a single falling column |
+| `lib/matrix/App.tsx` | Root component — composes columns, handles resize |
+| `lib/matrix/chars.ts` | Character sets (katakana block + digits + latin) |
+
+---
+
+## Data model
+
+```ts
+type Cell = {
+  char: string;   // random glyph
+  age: number;    // 0 = head (white), 1..tailLen = green (dimming), -1 = off
+};
+
+type Column = {
+  cells: Cell[];   // one per terminal row
+  speed: number;   // rows advanced per tick (0.5–2.0, fractional via accumulator)
+  active: boolean; // whether the column is currently raining
+  restartDelay: number; // ticks before restarting after reaching the bottom
+};
+```
+
+State: `Column[]` — one per terminal column (respecting character width).
+
+---
+
+## Render loop
+
+`useMatrixState` drives a `setInterval` tick (configurable FPS, default ~30 fps → ~33 ms).
+Each tick advances each column's head by `speed` rows and ages all tail cells.
+When the head exits the bottom, the column goes inactive for `restartDelay` ticks, then resets.
+
+---
+
+## Visual style
+
+- **Head cell**: bold white (`chalk.bold.white`)
+- **Tail gradient**: bright green → dim green over `tailLen` cells (default 8–16, randomised per column)
+- **Background**: terminal default (black assumed; no explicit fill)
+- **Character refresh**: head cell re-randomises each tick; tail cells keep their character
+
+---
+
+## Controls
+
+| Key | Action |
+|-----|--------|
+| `q` / `Ctrl-C` | Quit |
+| `+` / `-` | Speed up / slow down |
+| `r` | Randomise all columns |
+
+---
+
+## Phases
+
+1. **Setup** — add `ink` dependency, create entry point, confirm Ink renders to terminal
+2. **Characters** — implement `chars.ts` with katakana + digit + latin sets, random picker
+3. **State hook** — `useMatrixState` with tick loop, column advance logic, resize handling
+4. **Column component** — `Column.tsx` renders cells with correct colour/bold
+5. **App shell** — wire columns together, keyboard controls
+6. **Polish** — colour gradient tuning, speed variance, startup rain-in effect
