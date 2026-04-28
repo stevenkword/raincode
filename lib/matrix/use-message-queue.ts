@@ -34,11 +34,17 @@ async function fetchPhrase(): Promise<string | null> {
 interface Options {
   forcedMessage?: string;
   noAi?: boolean;
+  pipeMessages?: string[];
 }
 
-export function useMessageQueue({ noAi = false, forcedMessage }: Options = {}) {
+export function useMessageQueue({
+  noAi = false,
+  forcedMessage,
+  pipeMessages,
+}: Options = {}) {
   const queueRef = useRef<string[]>(forcedMessage ? [forcedMessage] : []);
   const fetchingRef = useRef(false);
+  const pipeIndexRef = useRef(0);
   const [size, setSize] = useState(forcedMessage ? 1 : 0);
 
   const refill = useCallback(async () => {
@@ -47,6 +53,15 @@ export function useMessageQueue({ noAi = false, forcedMessage }: Options = {}) {
     }
     if (forcedMessage) {
       queueRef.current.push(forcedMessage);
+      setSize(queueRef.current.length);
+      return;
+    }
+    if (pipeMessages && pipeMessages.length > 0) {
+      const msg = pipeMessages[
+        pipeIndexRef.current % pipeMessages.length
+      ] as string;
+      pipeIndexRef.current++;
+      queueRef.current.push(msg);
       setSize(queueRef.current.length);
       return;
     }
@@ -60,7 +75,7 @@ export function useMessageQueue({ noAi = false, forcedMessage }: Options = {}) {
       queueRef.current.push(phrase);
       setSize(queueRef.current.length);
     }
-  }, [noAi, forcedMessage]);
+  }, [noAi, forcedMessage, pipeMessages]);
 
   useEffect(() => {
     if (size < MIN_QUEUE) {

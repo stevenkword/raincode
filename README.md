@@ -170,6 +170,20 @@ raincode --timeout 3600   # 1 hour
 
 ---
 
+### Pipe mode
+
+Pipe any newline-separated text into `raincode` and each line surfaces as a message in the rain, cycling in order when exhausted. AI generation is automatically bypassed when stdin is a pipe.
+
+```bash
+echo "WAKE UP" | raincode
+printf "FOLLOW THE WHITE RABBIT\nTHERE IS NO SPOON\nFREE YOUR MIND" | raincode
+cat phrases.txt | raincode
+```
+
+Lines are uppercased and stripped of non-letter characters automatically. Lines shorter than 2 characters are skipped.
+
+---
+
 ### `--cycle`
 
 Enables automatic hue rotation. The base color smoothly cycles through the full color spectrum at ~10°/s (~36 seconds per full rotation), starting from the active theme's base color. Press `c` at any time to toggle cycling on or off while running.
@@ -229,6 +243,10 @@ raincode --no-ai
 
 # Cycle through all colors
 raincode --cycle
+
+# Pipe custom messages into the rain
+echo "WAKE UP" | raincode
+printf "FOLLOW THE WHITE RABBIT\nTHERE IS NO SPOON" | raincode
 ```
 
 ### Config file

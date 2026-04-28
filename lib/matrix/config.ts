@@ -8,6 +8,7 @@ export interface Config {
   density: number;
   message?: string;
   noAi: boolean;
+  pipeMessages?: string[];
   speed: number;
   theme: string;
   timeout?: number;

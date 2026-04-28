@@ -310,6 +310,7 @@ export function useMatrixState(config: Config) {
   const { dequeue, hasMessages } = useMessageQueue({
     noAi: config.noAi,
     forcedMessage: config.message,
+    pipeMessages: config.pipeMessages,
   });
 
   const speedRef = useRef(config.speed);
