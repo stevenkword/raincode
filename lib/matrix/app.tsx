@@ -121,6 +121,7 @@ export default function App({ config }: Props) {
           ages={col.ages}
           cells={col.cells}
           flashes={col.flashes}
+          glows={col.glows}
           key={i}
           rows={terminalRows}
           stops={stops}

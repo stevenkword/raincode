@@ -9,14 +9,14 @@ const FLASH_PROB = 0.005;
 const MESSAGE_PROB = 0.2;
 const MAX_MESSAGE_COLS = 2;
 const MAX_STREAMS = 2;
-const SECOND_STREAM_THRESHOLD = 0.3;
-const SECOND_STREAM_PROB = 0.003;
+const SECOND_STREAM_THRESHOLD = 0.2;
+const SECOND_STREAM_PROB = 0.008;
 
 const SPEED_STEP = 0.25;
 const SPEED_MIN = 0.1;
 const SPEED_MAX = 5.0;
-const TICK_MS = 50;
-const CYCLE_DELTA = 0.5; // degrees per tick (~10°/s at 20fps)
+const TICK_MS = 33;
+const CYCLE_DELTA = 0.33; // degrees per tick (~10°/s at 30fps)
 
 interface MessageState {
   chars: string[];
@@ -36,6 +36,7 @@ export interface MatrixColumn {
   ages: Int16Array;
   cells: (string | null)[];
   flashes: Uint8Array;
+  glows: Uint8Array;
   tailLens: Uint8Array;
 }
 
@@ -60,7 +61,7 @@ function makeStream(
     message: null,
     restartIn: initialDelay,
     speed: randomSpeed(speedMultiplier),
-    tailLen: 8 + Math.floor(Math.random() * 12),
+    tailLen: 18 + Math.floor(Math.random() * 18),
   };
 }
 
@@ -76,17 +77,21 @@ function makeColumn(
     cells: new Array<string | null>(rows).fill(null),
     dissolves: new Uint8Array(rows),
     flashes: new Uint8Array(rows),
+    glows: new Uint8Array(rows),
     tailLens: new Uint8Array(rows).fill(12),
     streams: [makeStream(dormant ? 99_999 : initialDelay, speedMultiplier)],
   };
 }
 
-// One pass: decrement flashes, age cells, expire aged-out cells, mutate tail
+// One pass: decrement flashes/glows, age cells, expire aged-out cells, mutate tail
 function tickCellsInPlace(col: ColumnState, rows: number): void {
-  const { ages, cells, flashes, dissolves, tailLens } = col;
+  const { ages, cells, flashes, glows, dissolves, tailLens } = col;
   for (let r = 0; r < rows; r++) {
     if (flashes[r] > 0) {
       flashes[r]--;
+    }
+    if (glows[r] > 0) {
+      glows[r]--;
     }
 
     const age = ages[r];
@@ -148,7 +153,7 @@ function advanceStreamHead(
   col: ColumnState,
   rows: number
 ): HeadAdvanceResult {
-  const { ages, cells, flashes, tailLens, dissolves } = col;
+  const { ages, cells, flashes, glows, tailLens, dissolves } = col;
   let { head, headAcc, message } = stream;
   let justExhaustedMessage = false;
   headAcc += stream.speed;
@@ -172,6 +177,9 @@ function advanceStreamHead(
       ages[head] = 0;
       tailLens[head] = stream.tailLen;
       dissolves[head] = 0;
+      if (head - 1 >= 0) {
+        glows[head - 1] = 3;
+      }
     }
   }
 
@@ -225,8 +233,8 @@ function tickStream(
       head: -1,
       headAcc: 0,
       message: null,
-      restartIn: Math.floor(Math.random() * 20) + 3,
-      tailLen: 8 + Math.floor(Math.random() * 12),
+      restartIn: Math.floor(Math.random() * 5) + 1,
+      tailLen: 18 + Math.floor(Math.random() * 18),
     };
   }
 
@@ -348,9 +356,7 @@ export function useMatrixState(config: Config) {
 
   // Stable tick loop — reads all mutable state through refs
   useEffect(() => {
-    let tick = 0;
     const interval = setInterval(() => {
-      tick++;
       if (!pausedRef.current) {
         processTick(
           colsRef.current,
@@ -363,10 +369,7 @@ export function useMatrixState(config: Config) {
           hueOffsetRef.current = (hueOffsetRef.current + CYCLE_DELTA) % 360;
         }
       }
-      // Physics at 20 fps, React renders at 10 fps
-      if (tick % 2 === 0) {
-        forceRender();
-      }
+      forceRender();
     }, TICK_MS);
 
     return () => clearInterval(interval);
@@ -393,6 +396,7 @@ export function useMatrixState(config: Config) {
       col.ages.fill(-1);
       col.cells.fill(null);
       col.flashes.fill(0);
+      col.glows.fill(0);
       col.dissolves.fill(0);
       col.tailLens.fill(12);
       col.streams = [

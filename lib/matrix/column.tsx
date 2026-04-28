@@ -11,14 +11,19 @@ export default function Column({
   cells,
   ages,
   flashes,
+  glows,
   tailLens,
   rows,
   stops,
 }: Props) {
-  const flashColor = stops[0]?.[1];
-  const flashHex = flashColor
-    ? `#${flashColor[0].toString(16).padStart(2, "0")}${flashColor[1].toString(16).padStart(2, "0")}${flashColor[2].toString(16).padStart(2, "0")}`
+  const headColor = stops[0]?.[1];
+  const flashHex = headColor
+    ? `#${headColor[0].toString(16).padStart(2, "0")}${headColor[1].toString(16).padStart(2, "0")}${headColor[2].toString(16).padStart(2, "0")}`
     : "#ffffff";
+  const glowColor = stops[1]?.[1];
+  const glowHex = glowColor
+    ? `#${glowColor[0].toString(16).padStart(2, "0")}${glowColor[1].toString(16).padStart(2, "0")}${glowColor[2].toString(16).padStart(2, "0")}`
+    : "#ccffcc";
 
   return (
     <Box flexDirection="column" width={1}>
@@ -31,9 +36,14 @@ export default function Column({
         }
 
         const flashing = (flashes[r] ?? 0) > 0;
-        const color = flashing
-          ? flashHex
-          : phosphorColor(age, tailLens[r] ?? 12, stops);
+        const glowing = (glows[r] ?? 0) > 0;
+        let color = phosphorColor(age, tailLens[r] ?? 12, stops);
+        if (glowing) {
+          color = glowHex;
+        }
+        if (flashing) {
+          color = flashHex;
+        }
         return (
           <Text bold={age === 0} color={color} key={r}>
             {char}

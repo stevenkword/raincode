@@ -264,6 +264,19 @@ printf "FOLLOW THE WHITE RABBIT\nTHERE IS NO SPOON" | raincode
 raincode --clock
 ```
 
+### Display tips
+
+The film used tall, narrow characters on a CRT with tight line spacing. To best approximate the look in iTerm:
+
+- **Font**: Menlo or Monaco, size 10–11pt
+- **Line spacing**: 1.0 (no extra padding)
+- **Columns**: maximize the terminal window — more columns = denser rain
+- **Background**: pure black (`#000000`)
+
+A smaller font at full-screen gives the closest match to the film's dense, fine-grained rain.
+
+---
+
 ### Config file
 
 Persistent defaults can be stored at `~/.config/raincode/config.json`. CLI flags override file values.
