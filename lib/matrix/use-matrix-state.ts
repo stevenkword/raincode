@@ -223,7 +223,7 @@ function tickStream(
       head: -1,
       headAcc: 0,
       message: null,
-      restartIn: Math.floor(Math.random() * 50) + 10,
+      restartIn: Math.floor(Math.random() * 20) + 3,
       tailLen: 8 + Math.floor(Math.random() * 12),
     };
   }

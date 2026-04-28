@@ -46,12 +46,12 @@ export function buildStops(headHex: string, baseHex: string): GradientStops {
   const base = hexToRgb(baseHex);
   return [
     [0.0, head], // head — white
-    [0.02, lerpRgb(WHITE, base, 0.3)], // 17c: one-cell transition to green
-    [0.08, base], // 17c: full saturation by cell 2
-    [0.3, scaleRgb(base, 0.55)], // 17b: fast drop through bright zone
-    [0.55, scaleRgb(base, 0.28)], // 17b: mid-tail noticeably dim
-    [0.8, scaleRgb(base, 0.12)], // 17b: near-invisible
-    [1.0, scaleRgb(base, 0.05)], // 17b: ghost trace
+    [0.02, lerpRgb(WHITE, base, 0.3)], // one-cell transition to green
+    [0.08, base], // full saturation by cell 2
+    [0.45, scaleRgb(base, 0.65)], // hold brightness through mid-tail
+    [0.7, scaleRgb(base, 0.35)], // start fading — 8–12 chars still visible
+    [0.88, scaleRgb(base, 0.12)], // near-invisible
+    [1.0, scaleRgb(base, 0.05)], // ghost trace
   ];
 }
 
