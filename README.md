@@ -2,8 +2,6 @@
 
 A modern terminal clone of the classic `cmatrix` screensaver, built with React Ink and brought up to 2026 with true-color rendering, AI-generated messages, and full screensaver polish.
 
-<img src="screenshot.png" width="800" alt="raincode terminal screenshot" />
-
 ---
 
 ## Inspiration
