@@ -15,10 +15,10 @@ export default function Column({
   rows,
   stops,
 }: Props) {
-  const flashColor = stops[1]?.[1];
+  const flashColor = stops[0]?.[1];
   const flashHex = flashColor
     ? `#${flashColor[0].toString(16).padStart(2, "0")}${flashColor[1].toString(16).padStart(2, "0")}${flashColor[2].toString(16).padStart(2, "0")}`
-    : "#88ff88";
+    : "#ffffff";
 
   return (
     <Box flexDirection="column" width={1}>

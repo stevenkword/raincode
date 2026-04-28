@@ -6,7 +6,7 @@ import { useMessageQueue } from "./use-message-queue.js";
 
 const MUTATION_RATE = 0.04;
 const FLASH_PROB = 0.005;
-const MESSAGE_PROB = 0.05;
+const MESSAGE_PROB = 0.2;
 const MAX_MESSAGE_COLS = 2;
 const MAX_STREAMS = 2;
 const SECOND_STREAM_THRESHOLD = 0.3;
@@ -160,15 +160,16 @@ function advanceStreamHead(
       if (message !== null && message.pos < message.chars.length) {
         cells[head] = message.chars[message.pos] ?? randomChar();
         message = { chars: message.chars, pos: message.pos + 1 };
+        flashes[head] = 6;
       } else {
         cells[head] = randomChar();
         if (message !== null) {
           message = null;
           justExhaustedMessage = true;
         }
+        flashes[head] = 0;
       }
       ages[head] = 0;
-      flashes[head] = 0;
       tailLens[head] = stream.tailLen;
       dissolves[head] = 0;
     }
@@ -181,7 +182,7 @@ function applyMessageDissolve(col: ColumnState, rows: number): void {
   const { ages, cells, dissolves } = col;
   for (let r = 0; r < rows; r++) {
     if (ages[r] >= 0 && cells[r] !== null && dissolves[r] === 0) {
-      dissolves[r] = 3 + Math.floor(Math.random() * 3);
+      dissolves[r] = 10 + Math.floor(Math.random() * 6);
     }
   }
 }
