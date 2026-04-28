@@ -16,6 +16,7 @@ const SPEED_STEP = 0.25;
 const SPEED_MIN = 0.1;
 const SPEED_MAX = 5.0;
 const TICK_MS = 50;
+const CYCLE_DELTA = 0.5; // degrees per tick (~10°/s at 20fps)
 
 interface MessageState {
   chars: string[];
@@ -317,6 +318,8 @@ export function useMatrixState(config: Config) {
   const hasMessagesRef = useRef(hasMessages);
   const dequeueRef = useRef(dequeue);
   const pausedRef = useRef(false);
+  const cyclingRef = useRef(config.cycle);
+  const hueOffsetRef = useRef(0);
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   // Keep refs current each render so the tick closure always sees fresh values
@@ -353,6 +356,9 @@ export function useMatrixState(config: Config) {
           hasMessagesRef.current,
           dequeueRef.current
         );
+        if (cyclingRef.current) {
+          hueOffsetRef.current = (hueOffsetRef.current + CYCLE_DELTA) % 360;
+        }
       }
       // Physics at 20 fps, React renders at 10 fps
       if (tick % 2 === 0) {
@@ -365,6 +371,11 @@ export function useMatrixState(config: Config) {
 
   const togglePause = useCallback(() => {
     pausedRef.current = !pausedRef.current;
+    forceRender();
+  }, []);
+
+  const toggleCycle = useCallback(() => {
+    cyclingRef.current = !cyclingRef.current;
     forceRender();
   }, []);
 
@@ -390,10 +401,13 @@ export function useMatrixState(config: Config) {
 
   return {
     adjustSpeed,
+    cycling: cyclingRef.current,
+    hueOffset: hueOffsetRef.current,
     paused: pausedRef.current,
     randomize,
     speedMultiplier: speedRef.current,
     speedStep: SPEED_STEP,
+    toggleCycle,
     togglePause,
     columns: colsRef.current as MatrixColumn[],
     terminalRows: termRows,

@@ -399,3 +399,136 @@ When `paused` is true, render a small overlay in the bottom-left using Ink's `po
 |------|--------|
 | `lib/matrix/use-matrix-state.ts` | `pausedRef`, `togglePause`, `paused` in return value; gate `processTick` |
 | `lib/matrix/app.tsx` | Wire `togglePause` into `InputHandler`; render pause indicator |
+
+---
+
+## Phase 19 — Color cycling (`--cycle`)
+
+**Goal**: passing `--cycle` slowly drifts the hue of the rain over time — green → teal → blue → purple → back — giving a long-running screensaver a living, breathing quality.
+
+### Config
+
+Add `cycle: boolean` to `Config` and `--cycle` to the CLI parser (`lib/matrix/config.ts`). No value needed — it's a boolean flag like `--no-ai`.
+
+### Hue rotation
+
+HSL hue rotation is the cleanest approach: keep the theme's base color as the origin hue, and advance it by a small delta each second.
+
+- Conversion helpers `hslToHex` and `hexToHsl` in `lib/matrix/theme.ts`
+- Cycle period: one full 360° rotation every ~120 seconds (0.05°/tick at 20 fps × 50 ms = 3°/s → too fast; 0.005°/tick = 0.3°/s → full cycle in ~20 min, better for a screensaver). Make the period a constant `CYCLE_PERIOD_TICKS`.
+- Hue wraps at 360°.
+
+### Integration (`use-matrix-state.ts`)
+
+- Add `hueOffsetRef = useRef(0)` — advances each tick when `config.cycle` is true.
+- Each tick: `hueOffsetRef.current = (hueOffsetRef.current + CYCLE_DELTA) % 360`
+- Return `hueOffset: hueOffsetRef.current` from `useMatrixState`.
+
+### Rendering (`app.tsx`)
+
+- `resolveTheme` already returns `{ head, base }`. Apply hue rotation to `base` before calling `buildStops`:
+  ```ts
+  const base = config.cycle ? rotateHue(theme.base, hueOffset) : theme.base;
+  const stops = buildStops(theme.head, base);
+  ```
+- `stops` is recomputed on every render (already the case), so the color updates automatically as `hueOffset` changes.
+
+### Keybinding
+
+Add `c` to toggle cycling on/off at runtime (same pattern as pause). Wire into `InputHandler`.
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/config.ts` | Add `cycle` field, `--cycle` flag |
+| `lib/matrix/theme.ts` | Add `hexToHsl`, `hslToHex`, `rotateHue` helpers |
+| `lib/matrix/use-matrix-state.ts` | `hueOffsetRef`, advance per tick, return `hueOffset` + `toggleCycle` |
+| `lib/matrix/app.tsx` | Apply `rotateHue` before `buildStops`; wire `c` keybinding |
+
+---
+
+## Phase 20 — Pipe mode
+
+**Goal**: `echo "WAKE UP" | raincode` reads text from stdin and surfaces each line as a message in the rain, in order, cycling when exhausted. Falls back to AI messages (or silence with `--no-ai`) when stdin is empty / not a pipe.
+
+### Detection
+
+At startup in `bin/matrix.tsx`, check `process.stdin.isTTY`:
+- `false` → stdin is a pipe; read all lines into an array before rendering.
+- `true` → normal interactive mode; skip pipe logic entirely.
+
+### Reading stdin
+
+```ts
+async function readStdin(): Promise<string[]> {
+  const lines: string[] = [];
+  for await (const line of console.readline()) { ... }
+  return lines.filter(l => l.trim().length > 0);
+}
+```
+
+Use `Bun.stdin.text()` (simpler) — reads the full stdin buffer, split on newlines.
+
+### Passing to config
+
+Add `pipeMessages?: string[]` to `Config`. `parseConfig` in `bin/matrix.tsx` is called after stdin is read; pass `pipeMessages` into the config object. No new CLI flag needed.
+
+### Queue integration (`use-message-queue.ts`)
+
+If `pipeMessages` is set and non-empty, skip AI fetching entirely. Cycle through the pipe messages in order (wrapping), using the existing queue refill mechanism — when the queue runs low, push the next message from the pipe array.
+
+```ts
+const pipeIndexRef = useRef(0);
+// In refill():
+if (pipeMessages?.length) {
+  queueRef.current.push(pipeMessages[pipeIndexRef.current % pipeMessages.length]);
+  pipeIndexRef.current++;
+  setSize(queueRef.current.length);
+  return;
+}
+```
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `bin/matrix.tsx` | Detect pipe, read stdin with `Bun.stdin.text()`, pass `pipeMessages` to config |
+| `lib/matrix/config.ts` | Add `pipeMessages?: string[]` to `Config` |
+| `lib/matrix/use-message-queue.ts` | Cycle through `pipeMessages` instead of fetching AI |
+
+---
+
+## Phase 21 — Clock mode (`--clock`)
+
+**Goal**: `raincode --clock` surfaces the current time (`HH:MM`) as a message every minute. The time appears in the rain, fades out, and the next minute's time surfaces shortly after.
+
+### Config
+
+Add `clock: boolean` to `Config` and `--clock` to the CLI parser.
+
+### Implementation (`use-message-queue.ts`)
+
+Clock mode is a special message source, similar to `forcedMessage` but time-aware:
+
+```ts
+// In refill(), when config.clock is true:
+const now = new Date();
+const hh = String(now.getHours()).padStart(2, '0');
+const mm = String(now.getMinutes()).padStart(2, '0');
+queueRef.current.push(`${hh}${mm}`); // "1423" → surfaces as 4 chars
+setSize(queueRef.current.length);
+```
+
+The queue keeps at most 1 clock message ahead (MIN_QUEUE = 1 when in clock mode) so the time shown is always fresh. Since each message takes a few seconds to surface, a 1-minute cycle keeps things in sync.
+
+### Coexistence
+
+`--clock` and pipe mode are mutually exclusive — pipe mode takes priority if both somehow appear. `--clock` and `--no-ai` can coexist (clock doesn't use AI). `--clock` and `--message` — `--message` wins (explicit overrides clock).
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/config.ts` | Add `clock` field, `--clock` flag |
+| `lib/matrix/use-message-queue.ts` | Add clock source branch in `refill()`; reduce MIN_QUEUE to 1 in clock mode |

@@ -2,13 +2,14 @@ import { Box, Text, useApp, useInput, useStdin } from "ink";
 import { useEffect, useState } from "react";
 import Column from "./column.js";
 import type { Config } from "./config.js";
-import { buildStops, resolveTheme } from "./theme.js";
+import { buildStops, resolveTheme, rotateHue } from "./theme.js";
 import { useMatrixState } from "./use-matrix-state.js";
 
 interface InputHandlerProps {
   adjustSpeed: (delta: number) => void;
   randomize: () => void;
   speedStep: number;
+  toggleCycle: () => void;
   togglePause: () => void;
 }
 
@@ -16,6 +17,7 @@ function InputHandler({
   adjustSpeed,
   randomize,
   speedStep,
+  toggleCycle,
   togglePause,
 }: InputHandlerProps) {
   const { exit } = useApp();
@@ -24,6 +26,8 @@ function InputHandler({
       exit();
     } else if (input === " ") {
       togglePause();
+    } else if (input === "c") {
+      toggleCycle();
     } else if (input === "+" || input === "=") {
       adjustSpeed(speedStep);
     } else if (input === "-") {
@@ -78,16 +82,20 @@ export default function App({ config }: Props) {
   const { isRawModeSupported } = useStdin();
   const {
     adjustSpeed,
+    cycling,
+    hueOffset,
     paused,
     randomize,
     speedStep,
+    toggleCycle,
     togglePause,
     columns,
     terminalRows,
     terminalCols,
   } = useMatrixState(config);
   const theme = resolveTheme(config.theme, config.color);
-  const stops = buildStops(theme.head, theme.base);
+  const baseColor = cycling ? rotateHue(theme.base, hueOffset) : theme.base;
+  const stops = buildStops(theme.head, baseColor);
 
   return (
     <Box flexDirection="row" height={terminalRows} width={terminalCols}>
@@ -96,12 +104,13 @@ export default function App({ config }: Props) {
           adjustSpeed={adjustSpeed}
           randomize={randomize}
           speedStep={speedStep}
+          toggleCycle={toggleCycle}
           togglePause={togglePause}
         />
       )}
       {paused && (
         <Box bottom={0} left={0} position="absolute">
-          <Text color={theme.base} dimColor>
+          <Text color={baseColor} dimColor>
             {" "}
             PAUSED{" "}
           </Text>

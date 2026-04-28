@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 export interface Config {
   color?: string;
+  cycle: boolean;
   density: number;
   message?: string;
   noAi: boolean;
@@ -15,6 +16,7 @@ export interface Config {
 const CONFIG_PATH = join(homedir(), ".config", "raincode", "config.json");
 
 const DEFAULTS: Config = {
+  cycle: false,
   density: 1.0,
   noAi: false,
   speed: 1.0,
@@ -42,6 +44,7 @@ Options:
   --color <hex>    Override base color, e.g. #00ff41
   --message <text> Pin a message to cycle through columns
   --timeout <s>    Exit after this many seconds
+  --cycle          Enable automatic hue rotation (press c to toggle)
   --no-ai          Disable AI-generated messages
   --help           Show this help text
 
@@ -85,6 +88,9 @@ export function parseConfig(): Config {
       case "--timeout":
         cli.timeout = Number.parseInt(next ?? "0", 10);
         i++;
+        break;
+      case "--cycle":
+        cli.cycle = true;
         break;
       case "--no-ai":
         cli.noAi = true;
