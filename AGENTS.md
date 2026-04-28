@@ -12,6 +12,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Available scripts for this project, run via `bun`:
 
+- `bun run raincode` — Run the raincode screensaver
 - `bun dev` — Start the Next.js development server
 - `bun run build` — Create a production build
 - `bun start` — Serve the production build

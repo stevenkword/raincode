@@ -6,6 +6,7 @@
     "raincode": "bin/matrix.tsx"
   },
   "scripts": {
+    "raincode": "bun bin/matrix.tsx",
     "start": "bun bin/matrix.tsx",
     "check": "ultracite check",
     "fix": "ultracite fix",

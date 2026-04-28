@@ -35,7 +35,7 @@ bun install
 Run directly:
 
 ```bash
-bun run matrix
+bun run raincode
 ```
 
 Or link as a global command:
