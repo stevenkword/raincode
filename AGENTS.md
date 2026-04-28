@@ -25,16 +25,19 @@ In general, default to using Bun instead of Node.js.
 This project uses shadcn components.
 
 To add a new component, use `pnpm dlx shadcn@latest add <component>`. Example:
+
 ```bash
 bunx --bun shadcn@latest add button
 ```
 
 To search for available components in the shadcn registry, use:
+
 ```bash
 bunx --bun shadcn@latest search @shadcn
 ```
 
 You can optionally provide a `-q` parameter with a search query:
+
 ```bash
 bunx --bun shadcn@latest search @shadcn -q "button"
 ```
@@ -48,6 +51,7 @@ This project uses the AI SDK in its latest version. It is critical to consider t
 The AI Gateway is the default global provider, so you can access models using a simple string.
 
 **BAD:**
+
 ```ts
 import { generateText } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
@@ -59,6 +63,7 @@ const { text } = await generateText({
 ```
 
 **GOOD:**
+
 ```ts
 import { generateText } from 'ai';
 
@@ -148,14 +153,17 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 ### Framework-Specific Guidance
 
 **Next.js:**
+
 - Use Next.js `<Image>` component for images
 - Use `next/head` or App Router metadata API for head elements
 - Use Server Components for async data fetching instead of async Client Components
 
 **React 19+:**
+
 - Use ref as a prop instead of `React.forwardRef`
 
 **Solid/Svelte/Vue/Qwik:**
+
 - Use `class` and `for` attributes (not `className` or `htmlFor`)
 
 ---
@@ -181,3 +189,7 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 ---
 
 Most formatting and common issues are automatically fixed by Biome. Run `bun fix` before committing to ensure compliance.
+
+## Readme and Plan File
+
+When we make functional changes update the README.md and .plan files to accurately reflect the current state of the project.
