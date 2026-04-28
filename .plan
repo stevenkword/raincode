@@ -210,3 +210,87 @@ Config file at `~/.config/raincode/config.json` (parsed on startup, overridden b
 - `--timeout <s>`: render a fading countdown in the corner, then exit cleanly
 - macOS: call `caffeinate -w $PID &` in a child process to prevent sleep during screensaver use
 - Ink's `render()` already handles stdout; wrap in a try/finally to guarantee terminal restoration even on crash
+
+---
+
+## Phase 16 — Memory & CPU optimization ✓
+
+**Problem**: measured RSS grows ~25 MB/s (284 MB → 410 MB over 5 s) even with no TTY. At 20 fps × ~200 columns, `tickColumn` allocates 5 new arrays per column per tick via `.map()` and spread, producing ~1 M array elements/s of GC pressure. On a real terminal with Ink rendering, CPU is expected to be 15–40%.
+
+**Root cause** (`lib/matrix/use-matrix-state.ts:242–298`):
+
+```ts
+// Every tick, every column:
+const newAges     = col.ages.map(...)       // new Array(rows)
+const newCells    = [...col.cells]          // new Array(rows)
+const newFlashes  = col.flashes.map(...)    // new Array(rows)
+const newDissolves = [...col.dissolves]     // new Array(rows)
+const newTailLens = [...col.tailLens]       // new Array(rows)
+```
+
+At 20 fps, 200 columns, 50 rows: **10,000 allocations/s, each 50 elements** → ~10 MB/s of short-lived heap per tick round.
+
+**Plan**:
+
+### 16a — Typed arrays for per-row numeric fields
+
+Replace `number[]` arrays with `Int16Array` / `Float32Array` / `Uint8Array`:
+
+| Field | Current | New |
+|-------|---------|-----|
+| `ages` | `number[]` | `Int16Array` |
+| `flashes` | `number[]` | `Uint8Array` |
+| `dissolves` | `number[]` | `Uint8Array` |
+| `tailLens` | `number[]` | `Uint8Array` |
+
+Typed arrays are fixed-size, contiguous, and significantly cheaper to copy (via `TypedArray.prototype.set()` or `subarray()`).
+
+### 16b — Mutate column arrays in-place; double-buffer if needed
+
+`tickColumn` currently returns a new object. Change it to mutate the existing arrays in-place:
+
+- Remove `.map()` calls for ages/flashes/dissolves/tailLens — iterate with a `for` loop and write directly.
+- `cells` is `(string | null)[]` — keep as-is but mutate in-place rather than spreading.
+- Keep `StreamState` objects immutable (they're small structs, not arrays) — only the per-row arrays need to be mutable.
+
+React's `setCols` triggers re-render on reference equality. Use a **double-buffer**: maintain two `ColumnState[]` arrays (front/back), swap on each tick, mutate the back buffer, then call `setCols` with the front. This keeps React's reconciler happy while eliminating all per-tick heap allocation.
+
+### 16c — Reduce tick work for off-screen / dormant columns
+
+Skip `mutateCells`, `applyFlashBurst`, and `expireCells` entirely for columns where all streams are dormant (`restartIn > 0` and no live cells). Track a `dirty` flag on `ColumnState` and only process columns that have active content.
+
+### 16d — Throttle React re-renders with `useMemo` / stable references
+
+Currently every tick calls `setCols(tick)` which triggers a full re-render of all columns. After 16b, go further:
+
+- Only update `cols` with the columns that actually changed (dirty set from 16c).
+- Use `React.memo` on `<Column>` with a custom `areEqual` prop comparator so unchanged columns skip reconciliation entirely.
+
+### 16e — Move tick logic off the React render cycle
+
+`useAnimation` from Ink fires a React state update on every interval. With 200+ columns, this forces React to diff the entire tree 20× per second. Alternative:
+
+- Use a `useRef` to hold the mutable column buffer.
+- Run the tick in `setInterval` directly, mutating the ref.
+- Only call `setState` (triggering re-render) when the buffer has actually changed — which is always, but batching can reduce it to once per RAF via `requestAnimationFrame` or Ink's `unstable_batchedUpdates`.
+
+### Implemented
+
+- **16a** — `Int16Array` for `ages`, `Uint8Array` for `flashes`/`dissolves`/`tailLens`
+- **16b** — all per-row arrays mutated in-place; `ColumnState` held in `useRef`, no per-tick array copies
+- **16c** — dormant columns fast-pathed: `restartIn` decremented by direct mutation, cell work skipped entirely
+- **16e** — tick loop moved to `setInterval`; `forceRender` (from `useReducer`) replaces `useAnimation`; physics at 20 fps, React renders at 10 fps
+- Flash burst switched to reservoir sampling — no `activeTail` array allocation
+- Single O(rows) cell pass (age + expire + mutate + flash decrement combined)
+- `processTick` extracted to keep `useEffect` callback under complexity limit
+
+### Measured outcomes
+
+| Metric | Before | After (15 s) |
+|--------|--------|--------------|
+| RSS at start | ~284 MB | ~183 MB |
+| RSS at 15 s | ~660 MB (extrapolated) | ~356 MB |
+| Growth rate (steady) | ~25 MB/s | ~3–4 MB/s, GC stabilizing |
+| Reduction | — | ~46% lower at 15 s |
+
+Remaining slow drift is React's reconciler at 10 fps. Eliminating it entirely would require bypassing Ink's render cycle and writing terminal escape codes directly (significant architectural change).

@@ -18,6 +18,7 @@ A modern terminal clone of the classic `cmatrix` screensaver, built with React I
 - **Flash bursts** — random cells briefly flare to near-head brightness
 - **AI-generated messages** — Claude (claude-haiku-4-5) streams short Matrix-themed phrases that surface letter by letter in the rain, just like the hidden text easter eggs in the original film
 - **Full screensaver behavior** — alternate screen buffer, cursor hide/restore, macOS `caffeinate` integration
+- **Low-overhead animation** — typed arrays and in-place mutation for all per-cell state; physics at 20 fps, React renders at 10 fps; dormant columns fast-pathed to avoid cell work
 
 ---
 
