@@ -61,6 +61,7 @@ raincode [options]
 |-----|--------|
 | `q` / `Ctrl-C` | Quit |
 | `space` | Pause / resume |
+| `c` | Toggle color cycling |
 | `+` / `=` | Increase speed by 0.25 |
 | `-` | Decrease speed by 0.25 |
 | `r` | Randomize all columns |
@@ -169,6 +170,18 @@ raincode --timeout 3600   # 1 hour
 
 ---
 
+### `--cycle`
+
+Enables automatic hue rotation. The base color smoothly cycles through the full color spectrum at ~10°/s (~36 seconds per full rotation), starting from the active theme's base color. Press `c` at any time to toggle cycling on or off while running.
+
+```bash
+raincode --cycle                    # start with cycling enabled
+raincode --theme blue --cycle       # cycle starting from blue
+raincode --color "#ff00ff" --cycle  # cycle starting from magenta
+```
+
+---
+
 ### `--no-ai`
 
 Disables the AI message queue entirely. The rain runs as pure noise with no phrases surfacing. Use this if you have no API key configured, want a lower-distraction display, or are in an offline environment.
@@ -213,6 +226,9 @@ raincode --timeout 300
 
 # No AI, classic look
 raincode --no-ai
+
+# Cycle through all colors
+raincode --cycle
 ```
 
 ### Config file
