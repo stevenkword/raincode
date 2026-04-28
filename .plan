@@ -532,3 +532,106 @@ The queue keeps at most 1 clock message ahead (MIN_QUEUE = 1 when in clock mode)
 |------|---------|
 | `lib/matrix/config.ts` | Add `clock` field, `--clock` flag |
 | `lib/matrix/use-message-queue.ts` | Add clock source branch in `refill()`; reduce MIN_QUEUE to 1 in clock mode |
+
+---
+
+## Phase 22 — Denser rain by default
+
+**Goal**: Eliminate visible idle columns. The film rarely shows a column sitting dark — a new stream launches almost immediately after the previous one clears.
+
+### Changes
+
+- Reduce max restart delay from `Math.floor(Math.random() * 20) + 3` to `Math.floor(Math.random() * 5) + 1` (1–5 ticks vs 3–23)
+- Raise the default density from `1.0` to remain `1.0` but ensure dormant probability in `makeColumn` is effectively 0 at default density
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/use-matrix-state.ts` | Reduce restart delay range |
+
+---
+
+## Phase 23 — Longer tails
+
+**Goal**: Tails in the film are 20–35 characters long on average, not 8–20. Long tails are the most visually iconic element.
+
+### Changes
+
+- Increase tail length range from `8 + Math.floor(Math.random() * 12)` (8–20) to `18 + Math.floor(Math.random() * 18)` (18–36)
+- Update both `makeStream` and the `tickStream` restart path
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/use-matrix-state.ts` | Increase tail length range in `makeStream` and restart logic |
+
+---
+
+## Phase 24 — Phosphor glow approximation
+
+**Goal**: The film was shot on a CRT monitor with phosphor glow — bright cells bleed light onto their neighbors. Terminals can't do subpixel rendering, but we can approximate by brightening the cell immediately above and below any head cell.
+
+### Approach
+
+- When rendering the head cell (age === 0), also boost the cell at age 1 (one below) to a slightly elevated brightness stop
+- Alternatively: add a `glow` flag per cell, set on cells adjacent to the head, rendered at a fixed bright-but-not-white color
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/use-matrix-state.ts` | Track glow cells adjacent to head |
+| `lib/matrix/column.tsx` | Render glow cells at elevated brightness |
+
+---
+
+## Phase 25 — Extended white head zone
+
+**Goal**: The head should remain distinctly white for 2–3 cells before transitioning to green. Currently the transition happens in ~1 cell (`t=0.02`). Extending to `t=0.05–0.06` makes the head visually pop.
+
+### Changes (`lib/matrix/theme.ts`, `buildStops`)
+
+- Move second stop from `t=0.02` to `t=0.05`
+- Move full-base stop from `t=0.08` to `t=0.10`
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/theme.ts` | Adjust gradient stop positions |
+
+---
+
+## Phase 26 — More frequent second streams
+
+**Goal**: The film frequently shows 2 overlapping streams per column. `SECOND_STREAM_PROB = 0.003` is too low.
+
+### Changes
+
+- Increase `SECOND_STREAM_PROB` from `0.003` to `0.008`
+- Lower `SECOND_STREAM_THRESHOLD` from `0.3` to `0.2` so second streams can spawn earlier
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `lib/matrix/use-matrix-state.ts` | Tune `SECOND_STREAM_PROB` and `SECOND_STREAM_THRESHOLD` |
+
+---
+
+## Phase 27 — Font/display recommendations
+
+**Goal**: The film used tall, narrow characters. Add guidance in the README for iTerm font settings that best approximate the look (small font size, tight line spacing, monospace).
+
+### Changes
+
+- Add a "Display Tips" section to README with recommended iTerm2 font settings
+- Suggest: font size 10–12pt, line spacing 1.0, a narrow monospace (e.g. Menlo, Monaco)
+
+### Files changed
+
+| File | Change |
+|------|---------|
+| `README.md` | Add Display Tips section |

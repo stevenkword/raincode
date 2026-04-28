@@ -203,21 +203,36 @@ When we make functional changes update the README.md and .plan files to accurate
 
 When taking screenshots of terminal apps on this system:
 
-1. **Use iTerm2**, not Terminal.app.
+1. **Use iTerm** (the app is named `iTerm`, not `iTerm2`).
 2. **Never include the OS window frame** (title bar, traffic lights) — it leaks session names and command text.
+3. **All Bash commands that open apps or use osascript must use `dangerouslyDisableSandbox: true`.**
 
-Capture the window, then crop the title bar with `sips` before saving:
+### Full working process
 
 ```bash
-# Capture the iTerm2 window (no shadow)
-screencapture -l$(osascript -e 'tell application "iTerm2" to id of front window') -x /tmp/shot.png
+# 1. Launch iTerm if not already running (requires dangerouslyDisableSandbox: true)
+open -a "iTerm" && sleep 2
 
-# Crop off the title bar (38px on standard displays)
-sips -c $(($(sips -g pixelHeight /tmp/shot.png | awk '{print $2}') - 38)) \
-       $(sips -g pixelWidth /tmp/shot.png | awk '{print $2}') \
-     --padToHeightWidth $(($(sips -g pixelHeight /tmp/shot.png | awk '{print $2}') - 38)) \
-       $(sips -g pixelWidth /tmp/shot.png | awk '{print $2}') \
-     /tmp/shot.png --out /tmp/shot_cropped.png
+# 2. Open a new window, run the program, capture the window ID
+WIN_ID=$(osascript <<'APPLESCRIPT'
+tell application "iTerm"
+  set w to (create window with default profile)
+  tell current session of w
+    write text "bun run raincode --no-ai"
+  end tell
+  delay 4
+  return id of w
+end tell
+APPLESCRIPT
+)
+
+# 3. Capture the specific window (no shadow)
+screencapture -l$WIN_ID -x $TMPDIR/shot.png
+
+# 4. Crop title bar — on retina (2x) displays the title bar is 76 physical px
+H=$(sips -g pixelHeight $TMPDIR/shot.png | awk '{print $2}')
+W=$(sips -g pixelWidth $TMPDIR/shot.png | awk '{print $2}')
+sips --cropToHeightWidth $((H - 76)) $W $TMPDIR/shot.png --out $TMPDIR/shot_cropped.png
 ```
 
-Or use `sips --cropToHeightWidth` to trim the top 38px directly.
+Use the specific window ID returned from `create window` — do **not** use `id of front window`, as a different window may be in front.
