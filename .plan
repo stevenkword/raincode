@@ -74,6 +74,7 @@ When the head exits the bottom, the column goes inactive for `restartDelay` tick
 | `q` / `Ctrl-C` | Quit |
 | `+` / `-` | Speed up / slow down |
 | `r` | Randomize all columns |
+| `space` | Pause / resume |
 
 ---
 
@@ -338,3 +339,63 @@ The key change: the drop from full `base` to `base × 0.55` happens across only 
 - Move the second stop from `t = 0.05` down to `t = 0.02` (one cell at typical tail lengths of 8–20).
 - Move the full-`base` stop from `t = 0.15` to `t = 0.08` so green saturation is reached within the first 2 cells.
 - This is a small tweak to the same stop table as 17b; implement together.
+
+---
+
+## Phase 18 — Spacebar pause / resume ✓
+
+**Goal**: pressing `space` freezes the animation in place; pressing it again resumes from exactly where it stopped.
+
+### State
+
+Add `pausedRef = useRef(false)` to `useMatrixState`. This is a ref (not state) so toggling it never triggers a re-render on its own.
+
+Add a `togglePause` callback that flips the ref and calls `forceRender()` once — the single extra render is needed to show/hide the pause indicator immediately.
+
+Return `paused: pausedRef.current` alongside `togglePause` so `App` can render the indicator and wire up the keybinding.
+
+### Tick loop (`use-matrix-state.ts`)
+
+In the `setInterval` callback, gate `processTick` behind the ref:
+
+```ts
+if (!pausedRef.current) {
+  processTick(colsRef.current, ...);
+}
+if (tick % 2 === 0) forceRender();
+```
+
+`forceRender` still fires every other tick while paused — this keeps the display alive (Ink repaints the frozen frame) without advancing any column state.
+
+### Input (`app.tsx`, `InputHandler`)
+
+Add `space` to the existing `useInput` handler:
+
+```ts
+} else if (input === " ") {
+  togglePause();
+}
+```
+
+`InputHandler` already receives callbacks as props; add `togglePause` to its `InputHandlerProps` interface.
+
+### Pause indicator (`app.tsx`)
+
+When `paused` is true, render a small overlay in the bottom-left using Ink's `position="absolute"`:
+
+```tsx
+{paused && (
+  <Box bottom={0} left={0} position="absolute">
+    <Text color={theme.base} dimColor>  PAUSED  </Text>
+  </Box>
+)}
+```
+
+`dimColor` keeps it unobtrusive — visible but not competing with the rain.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `lib/matrix/use-matrix-state.ts` | `pausedRef`, `togglePause`, `paused` in return value; gate `processTick` |
+| `lib/matrix/app.tsx` | Wire `togglePause` into `InputHandler`; render pause indicator |

@@ -9,17 +9,21 @@ interface InputHandlerProps {
   adjustSpeed: (delta: number) => void;
   randomize: () => void;
   speedStep: number;
+  togglePause: () => void;
 }
 
 function InputHandler({
   adjustSpeed,
   randomize,
   speedStep,
+  togglePause,
 }: InputHandlerProps) {
   const { exit } = useApp();
   useInput((input, key) => {
     if (input === "q" || (key.ctrl && input === "c")) {
       exit();
+    } else if (input === " ") {
+      togglePause();
     } else if (input === "+" || input === "=") {
       adjustSpeed(speedStep);
     } else if (input === "-") {
@@ -74,8 +78,10 @@ export default function App({ config }: Props) {
   const { isRawModeSupported } = useStdin();
   const {
     adjustSpeed,
+    paused,
     randomize,
     speedStep,
+    togglePause,
     columns,
     terminalRows,
     terminalCols,
@@ -90,7 +96,16 @@ export default function App({ config }: Props) {
           adjustSpeed={adjustSpeed}
           randomize={randomize}
           speedStep={speedStep}
+          togglePause={togglePause}
         />
+      )}
+      {paused && (
+        <Box bottom={0} left={0} position="absolute">
+          <Text color={theme.base} dimColor>
+            {" "}
+            PAUSED{" "}
+          </Text>
+        </Box>
       )}
       {columns.map((col, i) => (
         <Column

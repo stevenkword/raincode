@@ -316,6 +316,7 @@ export function useMatrixState(config: Config) {
   const termRowsRef = useRef(termRows);
   const hasMessagesRef = useRef(hasMessages);
   const dequeueRef = useRef(dequeue);
+  const pausedRef = useRef(false);
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   // Keep refs current each render so the tick closure always sees fresh values
@@ -344,13 +345,15 @@ export function useMatrixState(config: Config) {
     let tick = 0;
     const interval = setInterval(() => {
       tick++;
-      processTick(
-        colsRef.current,
-        termRowsRef.current,
-        speedRef.current,
-        hasMessagesRef.current,
-        dequeueRef.current
-      );
+      if (!pausedRef.current) {
+        processTick(
+          colsRef.current,
+          termRowsRef.current,
+          speedRef.current,
+          hasMessagesRef.current,
+          dequeueRef.current
+        );
+      }
       // Physics at 20 fps, React renders at 10 fps
       if (tick % 2 === 0) {
         forceRender();
@@ -359,6 +362,11 @@ export function useMatrixState(config: Config) {
 
     return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const togglePause = useCallback(() => {
+    pausedRef.current = !pausedRef.current;
+    forceRender();
+  }, []);
 
   const adjustSpeed = useCallback((delta: number) => {
     const next = Math.round((speedRef.current + delta) * 100) / 100;
@@ -382,9 +390,11 @@ export function useMatrixState(config: Config) {
 
   return {
     adjustSpeed,
+    paused: pausedRef.current,
     randomize,
     speedMultiplier: speedRef.current,
     speedStep: SPEED_STEP,
+    togglePause,
     columns: colsRef.current as MatrixColumn[],
     terminalRows: termRows,
     terminalCols: termCols,

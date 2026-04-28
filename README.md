@@ -13,7 +13,7 @@ A modern terminal clone of the classic `cmatrix` screensaver, built with React I
 `raincode` reimplements that effect from scratch in TypeScript, faithful to the source material but taking full advantage of what modern terminals and AI APIs make possible in 2026:
 
 - **24-bit true-color** phosphor gradients rather than 8-color approximations
-- **Film-accurate character set** — the actual half-width katakana block (`ｦ`–`ﾝ`) used by Whiteley, paired with the symbols and digits from the rain
+- **Film-accurate character set** — the actual half-width katakana block (`ｦ`–`ﾝ`) used by Whiteley, weighted ~80% katakana to match the film's distribution, paired with digits and symbols
 - **Character mutation** — tail cells randomly re-roll their glyph each tick, matching the shimmering look of the film
 - **Flash bursts** — random cells briefly flare to near-head brightness
 - **AI-generated messages** — Claude (claude-haiku-4-5) streams short Matrix-themed phrases that surface letter by letter in the rain, just like the hidden text easter eggs in the original film
@@ -60,11 +60,14 @@ raincode [options]
 | Key | Action |
 |-----|--------|
 | `q` / `Ctrl-C` | Quit |
+| `space` | Pause / resume |
 | `+` / `=` | Increase speed by 0.25 |
 | `-` | Decrease speed by 0.25 |
 | `r` | Randomize all columns |
 
 Speed is clamped to the range `0.1`–`5.0`. Changes take effect on new columns as they spawn; existing streams finish their current run at their prior speed.
+
+While paused, a dimmed `PAUSED` indicator appears in the bottom-left corner. The display stays live — the rain is simply frozen in place.
 
 ---
 
