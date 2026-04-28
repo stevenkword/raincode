@@ -294,3 +294,47 @@ Currently every tick calls `setCols(tick)` which triggers a full re-render of al
 | Reduction | — | ~46% lower at 15 s |
 
 Remaining slow drift is React's reconciler at 10 fps. Eliminating it entirely would require bypassing Ink's render cycle and writing terminal escape codes directly (significant architectural change).
+
+---
+
+## Phase 17 — Film-accuracy: highest-impact visual changes ✓
+
+Three changes, in priority order, each independent enough to ship alone.
+
+### 17a — Weighted character pool
+
+**Problem**: current pool is ~55% katakana. The film is ~70% katakana, ~20% digits, ~10% symbols. Box-drawing chars (`│─┼╬╪`) and IPA turned letters (`ɐɔɘɹɥʇʎʍɯʌↄǶ`) don't appear in the film and dilute the look.
+
+**Implementation** (`lib/matrix/chars.ts`):
+- Remove `BOX` and `TURNED` arrays entirely.
+- Build `CHARS` by repeating katakana 4×, digits 1×, symbols 1× before flattening — giving roughly 224 katakana : 10 digits : 18 symbols = ~80% / ~7% / ~13%.
+- No other files change; `randomChar()` stays the same.
+
+### 17b — Steeper tail fade curve
+
+**Problem**: the current gradient is a smooth linear-ish ramp from white → dim green over the full tail length. The film's phosphor decay is much steeper: cells 0–2 are bright, then brightness drops fast, with the bottom third barely visible.
+
+**Implementation** (`lib/matrix/theme.ts`, `buildStops`):
+
+Replace the current 6-stop gradient with one that front-loads brightness and drops sharply:
+
+| t | Color | Description |
+|---|-------|-------------|
+| 0.00 | head (white) | Head cell |
+| 0.04 | near-white tinted green | 1 cell of transition |
+| 0.12 | `base` (full saturation) | Bright zone — cells 2–3 |
+| 0.30 | `base × 0.55` | Fast drop |
+| 0.55 | `base × 0.28` | Mid-tail, noticeably dim |
+| 0.80 | `base × 0.12` | Almost invisible |
+| 1.00 | `base × 0.05` | Ghost — barely a hint |
+
+The key change: the drop from full `base` to `base × 0.55` happens across only 18% of the tail (t 0.12→0.30), versus the current slow rolloff.
+
+### 17c — Compress the head-to-green transition
+
+**Problem**: the head stays near-white for ~15% of the tail before reaching full green. In the film, the cell *immediately* below the head is already full saturated green.
+
+**Implementation** (`lib/matrix/theme.ts`, `buildStops`):
+- Move the second stop from `t = 0.05` down to `t = 0.02` (one cell at typical tail lengths of 8–20).
+- Move the full-`base` stop from `t = 0.15` to `t = 0.08` so green saturation is reached within the first 2 cells.
+- This is a small tweak to the same stop table as 17b; implement together.

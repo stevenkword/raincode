@@ -7,12 +7,11 @@ import { parseConfig } from "../lib/matrix/config.js";
 const ENTER_ALT = "\x1b[?1049h\x1b[?25l";
 const EXIT_ALT = "\x1b[?1049l\x1b[?25h";
 
-function restoreTerminal() {
-  process.stdout.write(EXIT_ALT);
-}
+// Parse config first so --help can print to the main screen and exit cleanly
+const config = parseConfig();
 
 process.stdout.write(ENTER_ALT);
-process.on("exit", restoreTerminal);
+process.on("exit", () => process.stdout.write(EXIT_ALT));
 process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));
 
@@ -22,7 +21,5 @@ if (process.platform === "darwin") {
     stdio: "ignore",
   }).unref();
 }
-
-const config = parseConfig();
 const { waitUntilExit } = render(<App config={config} />);
 await waitUntilExit();

@@ -30,27 +30,17 @@ const SYMBOLS = [
   ",",
 ];
 
-// Turned / reversed letterforms — Unicode IPA extensions and Letterlike Symbols
-// that resemble corrupted Latin letters, matching the "glitched alphabet" look
-const TURNED = [
-  "ɐ", // turned a      U+0250
-  "ɔ", // open o        U+0254
-  "ɘ", // reversed e    U+0258
-  "ɹ", // turned r      U+0279
-  "ɥ", // turned h      U+0265
-  "ʇ", // turned t      U+0287
-  "ʎ", // turned y      U+028E
-  "ʍ", // turned w      U+028D
-  "ɯ", // turned m      U+026F
-  "ʌ", // turned v      U+028C
-  "Ↄ", // reversed C    U+2183
-  "Ǝ", // reversed E    U+018E
+// Weighted pool: katakana repeated 4× gives ~80% katakana, ~7% digits, ~13% symbols —
+// matching the film's character distribution. Box-drawing and turned-letter glyphs
+// are excluded; they don't appear in the film.
+export const CHARS = [
+  ...KATAKANA,
+  ...KATAKANA,
+  ...KATAKANA,
+  ...KATAKANA,
+  ...DIGITS,
+  ...SYMBOLS,
 ];
-
-// Box-drawing glyphs that reinforce the "live terminal" texture
-const BOX = ["│", "─", "┼", "╬", "╪"];
-
-export const CHARS = [...KATAKANA, ...DIGITS, ...SYMBOLS, ...TURNED, ...BOX];
 
 export const randomChar = () =>
   CHARS[Math.floor(Math.random() * CHARS.length)] as string;
