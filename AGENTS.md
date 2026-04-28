@@ -193,3 +193,26 @@ Most formatting and common issues are automatically fixed by Biome. Run `bun fix
 ## Readme and Plan File
 
 When we make functional changes update the README.md and .plan files to accurately reflect the current state of the project.
+
+# Screenshots
+
+When taking screenshots of terminal apps on this system:
+
+1. **Use iTerm2**, not Terminal.app.
+2. **Never include the OS window frame** (title bar, traffic lights) — it leaks session names and command text.
+
+Capture the window, then crop the title bar with `sips` before saving:
+
+```bash
+# Capture the iTerm2 window (no shadow)
+screencapture -l$(osascript -e 'tell application "iTerm2" to id of front window') -x /tmp/shot.png
+
+# Crop off the title bar (38px on standard displays)
+sips -c $(($(sips -g pixelHeight /tmp/shot.png | awk '{print $2}') - 38)) \
+       $(sips -g pixelWidth /tmp/shot.png | awk '{print $2}') \
+     --padToHeightWidth $(($(sips -g pixelHeight /tmp/shot.png | awk '{print $2}') - 38)) \
+       $(sips -g pixelWidth /tmp/shot.png | awk '{print $2}') \
+     /tmp/shot.png --out /tmp/shot_cropped.png
+```
+
+Or use `sips --cropToHeightWidth` to trim the top 38px directly.
