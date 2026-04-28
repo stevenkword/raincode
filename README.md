@@ -196,6 +196,18 @@ raincode --color "#ff00ff" --cycle  # cycle starting from magenta
 
 ---
 
+### `--clock`
+
+Surfaces the current time (`HHMM`) as a recurring message in the rain. The time appears every minute — keeping one message ahead in the queue so the time shown is always fresh. Compatible with `--no-ai`; not compatible with `--message` (explicit message wins) or pipe mode (pipe takes priority).
+
+```bash
+raincode --clock
+raincode --clock --theme amber    # classic amber phosphor clock
+raincode --clock --cycle          # clock with drifting hue
+```
+
+---
+
 ### `--no-ai`
 
 Disables the AI message queue entirely. The rain runs as pure noise with no phrases surfacing. Use this if you have no API key configured, want a lower-distraction display, or are in an offline environment.
@@ -247,6 +259,9 @@ raincode --cycle
 # Pipe custom messages into the rain
 echo "WAKE UP" | raincode
 printf "FOLLOW THE WHITE RABBIT\nTHERE IS NO SPOON" | raincode
+
+# Clock mode
+raincode --clock
 ```
 
 ### Config file

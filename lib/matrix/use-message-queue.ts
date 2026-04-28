@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const MODEL = "anthropic/claude-haiku-4-5-20251001";
 const MIN_QUEUE = 3;
+const MIN_QUEUE_CLOCK = 1;
 
 const SYSTEM =
   "You are the Matrix. Output a single cryptic uppercase phrase of 4–12 characters " +
@@ -31,13 +32,22 @@ async function fetchPhrase(): Promise<string | null> {
   }
 }
 
+function clockPhrase(): string {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  return `${hh}${mm}`;
+}
+
 interface Options {
+  clock?: boolean;
   forcedMessage?: string;
   noAi?: boolean;
   pipeMessages?: string[];
 }
 
 export function useMessageQueue({
+  clock = false,
   noAi = false,
   forcedMessage,
   pipeMessages,
@@ -46,6 +56,7 @@ export function useMessageQueue({
   const fetchingRef = useRef(false);
   const pipeIndexRef = useRef(0);
   const [size, setSize] = useState(forcedMessage ? 1 : 0);
+  const minQueue = clock ? MIN_QUEUE_CLOCK : MIN_QUEUE;
 
   const refill = useCallback(async () => {
     if (fetchingRef.current) {
@@ -65,6 +76,11 @@ export function useMessageQueue({
       setSize(queueRef.current.length);
       return;
     }
+    if (clock) {
+      queueRef.current.push(clockPhrase());
+      setSize(queueRef.current.length);
+      return;
+    }
     if (noAi) {
       return;
     }
@@ -75,13 +91,13 @@ export function useMessageQueue({
       queueRef.current.push(phrase);
       setSize(queueRef.current.length);
     }
-  }, [noAi, forcedMessage, pipeMessages]);
+  }, [clock, noAi, forcedMessage, pipeMessages]);
 
   useEffect(() => {
-    if (size < MIN_QUEUE) {
+    if (size < minQueue) {
       refill().catch(() => undefined);
     }
-  }, [size, refill]);
+  }, [size, minQueue, refill]);
 
   const dequeue = useCallback((): string | undefined => {
     const phrase = queueRef.current.shift();

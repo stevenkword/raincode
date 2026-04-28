@@ -308,6 +308,7 @@ function processTick(
 export function useMatrixState(config: Config) {
   const { columns: termCols, rows: termRows } = useWindowSize();
   const { dequeue, hasMessages } = useMessageQueue({
+    clock: config.clock,
     noAi: config.noAi,
     forcedMessage: config.message,
     pipeMessages: config.pipeMessages,
